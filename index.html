@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newaygo Field Map</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #12141c;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────── */
+    #sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: #1a1d2e;
+      color: #dde1f0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 1000;
+      border-right: 1px solid #2a2e44;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px 18px;
+      border-bottom: 1px solid #2a2e44;
+    }
+
+    .sidebar-header h1 {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.25;
+      color: #ffffff;
+    }
+
+    .sidebar-header .subtitle {
+      margin-top: 5px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #4a5070;
+    }
+
+    .section {
+      padding: 14px 20px;
+      border-bottom: 1px solid #2a2e44;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #4a5070;
+      margin-bottom: 8px;
+    }
+
+    /* Base layer radios */
+    .radio-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #8a93b4;
+      transition: background 0.12s, color 0.12s;
+      user-select: none;
+    }
+
+    .radio-item:hover {
+      background: #22263a;
+      color: #dde1f0;
+    }
+
+    .radio-item.active {
+      color: #dde1f0;
+    }
+
+    .radio-item input[type="radio"] {
+      accent-color: #5b8dee;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Overlay checkboxes */
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #8a93b4;
+      transition: background 0.12s, color 0.12s;
+      user-select: none;
+    }
+
+    .check-item:hover {
+      background: #22263a;
+      color: #dde1f0;
+    }
+
+    .check-item input[type="checkbox"] {
+      accent-color: #5b8dee;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .check-item.pending {
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    /* ── Map ─────────────────────────────────────────────── */
+    #map {
+      flex: 1;
+      height: 100vh;
+    }
+
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+    }
+
+    .leaflet-control-zoom a {
+      background: #1a1d2e !important;
+      color: #dde1f0 !important;
+      border: 1px solid #2a2e44 !important;
+      font-size: 16px !important;
+      line-height: 28px !important;
+      width: 28px !important;
+      height: 28px !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: #22263a !important;
+      color: #ffffff !important;
+    }
+
+    .leaflet-control-attribution {
+      background: rgba(18, 20, 28, 0.75) !important;
+      color: #4a5070 !important;
+      font-size: 10px !important;
+    }
+
+    .leaflet-control-attribution a {
+      color: #5b8dee !important;
+    }
+
+    /* ── Popups ──────────────────────────────────────────── */
+    .leaflet-popup-content-wrapper {
+      background: #1a1d2e;
+      color: #dde1f0;
+      border: 1px solid #2a2e44;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      padding: 0;
+    }
+
+    .leaflet-popup-content {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 14px 16px;
+    }
+
+    .leaflet-popup-tip {
+      background: #1a1d2e;
+    }
+
+    .leaflet-popup-close-button {
+      color: #4a5070 !important;
+      font-size: 18px !important;
+      top: 6px !important;
+      right: 8px !important;
+    }
+
+    .leaflet-popup-close-button:hover {
+      color: #dde1f0 !important;
+    }
+
+    .popup-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .popup-row {
+      font-size: 12px;
+      color: #8a93b4;
+      margin-top: 2px;
+    }
+
+    .popup-row span {
+      color: #dde1f0;
+    }
+
+    .popup-loading {
+      color: #4a5070;
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    .popup-divider {
+      border-top: 1px solid #2a2e44;
+      margin: 8px 0;
+    }
+
+    .popup-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #4a5070;
+      margin-bottom: 4px;
+    }
+
+    .zoom-hint {
+      background: rgba(18, 20, 28, 0.88);
+      color: #8a93b4;
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #2a2e44;
+      pointer-events: none;
+    }
+
+    /* ── Public lands legend dots ───────────────────────────── */
+    .pl-legend { display: flex; gap: 3px; align-items: center; margin-left: auto; }
+    .pl-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Browse panel ───────────────────────────────────────── */
+    .browse-cats { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+
+    .browse-cat-btn {
+      padding: 3px 9px;
+      border-radius: 4px;
+      border: 1px solid #2a2e44;
+      background: transparent;
+      color: #8a93b4;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .browse-cat-btn:hover { background: #22263a; color: #dde1f0; }
+    .browse-cat-btn.active { background: #22263a; border-color: #5b8dee66; color: #dde1f0; }
+
+    .browse-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+
+    .browse-arrow {
+      width: 26px; height: 26px; padding: 0;
+      border-radius: 4px;
+      border: 1px solid #2a2e44;
+      background: transparent;
+      color: #8a93b4;
+      font-size: 18px; line-height: 1;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    .browse-arrow:hover:not(:disabled) { background: #22263a; color: #dde1f0; }
+    .browse-arrow:disabled { opacity: 0.25; cursor: default; }
+
+    .browse-counter {
+      flex: 1; font-size: 11px; color: #4a5070;
+      text-align: center; font-variant-numeric: tabular-nums;
+    }
+    .browse-info-name {
+      font-size: 12px; font-weight: 500; color: #dde1f0;
+      margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .browse-info-detail { font-size: 11px; color: #8a93b4; }
+    .browse-status { font-size: 11px; color: #4a5070; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <h1>Newaygo<br>Field Map</h1>
+    <div class="subtitle">Newaygo County, Michigan</div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Base Layer</div>
+    <label class="radio-item active">
+      <input type="radio" name="base" value="osm" checked> OpenStreetMap
+    </label>
+    <label class="radio-item">
+      <input type="radio" name="base" value="satellite"> Satellite
+    </label>
+    <label class="radio-item">
+      <input type="radio" name="base" value="topo"> Topo
+    </label>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Overlays</div>
+    <label class="check-item">
+      <input type="checkbox" id="chk-parcels"> Parcels
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-veg"> Pre-settlement Vegetation
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-nlcd"> Land Cover (NLCD 2021)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-contours"> Contours (5ft)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-soils"> Soils
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-refor"> USFS Reforestation
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-fbfm"> Fire Fuel Model
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-roads"> Roads
+    </label>
+    <label class="check-item pending">
+      <input type="checkbox" disabled> Wetlands (NWI)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-public-lands">
+      Public Lands
+      <span class="pl-legend">
+        <span class="pl-dot" style="background:#7b5e9e" title="School Forests"></span>
+        <span class="pl-dot" style="background:#2d6a4f" title="USFS"></span>
+        <span class="pl-dot" style="background:#52796f" title="MI DNR"></span>
+        <span class="pl-dot" style="background:#8b6f3e" title="County / City"></span>
+        <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
+        <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
+        <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
+      </span>
+    </label>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Browse</div>
+    <div class="browse-cats">
+      <button class="browse-cat-btn" data-cat="school">School Forests</button>
+      <button class="browse-cat-btn" data-cat="usfs">USFS</button>
+      <button class="browse-cat-btn" data-cat="dnr">MI DNR</button>
+      <button class="browse-cat-btn" data-cat="govt">County / City</button>
+      <button class="browse-cat-btn" data-cat="township">Townships</button>
+      <button class="browse-cat-btn" data-cat="cemetery">Cemeteries</button>
+      <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
+    </div>
+    <div class="browse-nav">
+      <button class="browse-arrow" id="browse-prev" disabled>&#8249;</button>
+      <span class="browse-counter" id="browse-counter">—</span>
+      <button class="browse-arrow" id="browse-next" disabled>&#8250;</button>
+    </div>
+    <div id="browse-info"></div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="https://unpkg.com/esri-leaflet-raster@3.0.0/dist/esri-leaflet-raster.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+<script>
+
+  const PARCELS_URL = 'https://arcgisweb.countyofnewaygo.com/hosting/rest/services/WebMaps/PublicCountyViewerProV3/MapServer/2';
+  const MIN_ZOOM    = 13;
+  const SIM_THRESH  = 0.88;
+
+  // ── URL hash: persist map position ───────────────────────────────
+  function parseHash() {
+    const m = location.hash.match(/^#(-?\d+\.?\d*),(-?\d+\.?\d*),(\d+)z/);
+    return m ? { lat: +m[1], lng: +m[2], zoom: +m[3] } : null;
+  }
+
+  // ── Base tile layers ──────────────────────────────────────────────
+  const baseLayers = {
+    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    }),
+    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri, Maxar, Earthstar Geographics',
+      maxZoom: 19
+    }),
+    topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri',
+      maxZoom: 19
+    })
+  };
+
+  // ── Map init ──────────────────────────────────────────────────────
+  const saved = parseHash();
+  const map = L.map('map', {
+    center: saved ? [saved.lat, saved.lng] : [43.5081, -85.7967],
+    zoom:   saved ? saved.zoom : 13,
+    layers: [baseLayers.osm],
+    zoomControl: true
+  });
+
+  map.on('moveend', () => {
+    const c = map.getCenter();
+    history.replaceState(null, '', `#${c.lat.toFixed(5)},${c.lng.toFixed(5)},${map.getZoom()}z`);
+    scheduleParcelLoad();
+  });
+
+  // ── Base layer switching ──────────────────────────────────────────
+  let currentBase = baseLayers.osm;
+  document.querySelectorAll('input[name="base"]').forEach(radio => {
+    radio.addEventListener('change', e => {
+      map.removeLayer(currentBase);
+      currentBase = baseLayers[e.target.value];
+      map.addLayer(currentBase);
+      document.querySelectorAll('.radio-item').forEach(el => el.classList.remove('active'));
+      e.target.closest('.radio-item').classList.add('active');
+    });
+  });
+
+  // ── Fuzzy owner grouping ──────────────────────────────────────────
+  function normalizeOwner(name) {
+    return (name || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function jaroWinkler(s1, s2) {
+    if (s1 === s2) return 1;
+    const l1 = s1.length, l2 = s2.length;
+    if (!l1 || !l2) return 0;
+    const range = Math.max(0, Math.floor(Math.max(l1, l2) / 2) - 1);
+    const m1 = new Array(l1).fill(false), m2 = new Array(l2).fill(false);
+    let matches = 0, transpositions = 0;
+    for (let i = 0; i < l1; i++) {
+      const lo = Math.max(0, i - range), hi = Math.min(i + range + 1, l2);
+      for (let j = lo; j < hi; j++) {
+        if (m2[j] || s1[i] !== s2[j]) continue;
+        m1[i] = m2[j] = true; matches++; break;
+      }
+    }
+    if (!matches) return 0;
+    let k = 0;
+    for (let i = 0; i < l1; i++) {
+      if (!m1[i]) continue;
+      while (!m2[k]) k++;
+      if (s1[i] !== s2[k]) transpositions++;
+      k++;
+    }
+    const jaro = (matches/l1 + matches/l2 + (matches - transpositions/2)/matches) / 3;
+    let prefix = 0;
+    for (let i = 0; i < Math.min(4, l1, l2); i++) { if (s1[i] === s2[i]) prefix++; else break; }
+    return jaro + prefix * 0.1 * (1 - jaro);
+  }
+
+  function groupByOwner(features) {
+    const names = features.map(f => normalizeOwner(f.properties.OWNER_NAME));
+    const parent = names.map((_, i) => i);
+    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    for (let i = 0; i < names.length; i++) {
+      if (!names[i]) continue;
+      for (let j = i + 1; j < names.length; j++) {
+        if (!names[j]) continue;
+        if (jaroWinkler(names[i], names[j]) >= SIM_THRESH) parent[find(i)] = find(j);
+      }
+    }
+    const groups = {};
+    features.forEach((f, i) => {
+      const root = find(i);
+      if (!groups[root]) groups[root] = { features: [], canonicalName: names[root] || '—' };
+      groups[root].features.push(f);
+    });
+    return Object.values(groups);
+  }
+
+  // ── Feature cache (dedup + smooth panning) ───────────────────────
+  const featureCache = new Map(); // PACKEDPIN → feature
+
+  // ── Parcel layers ─────────────────────────────────────────────────
+  let parcelsEnabled   = false;
+  let parcelBoundary   = null;
+  let parcelGroupLayer = null;
+  let parcelLoadTimer  = null;
+  let parcelGroups     = [];
+  let featureLayerMap  = new Map(); // PIN → leaflet layer
+  let multiGroupPins   = new Set(); // PINs belonging to multi-parcel owners
+
+  const STYLE_SELECTED = { color: '#5b8dee', weight: 1.5, opacity: 1, fillColor: '#5b8dee', fillOpacity: 0.2 };
+
+  function defaultStyle(pin) {
+    return multiGroupPins.has(pin)
+      ? { color: '#2a3a5a', weight: 1.8, opacity: 0.9, fillOpacity: 0 }
+      : { color: '#8a93b4', weight: 0.8, opacity: 0.6, fillOpacity: 0 };
+  }
+
+  function selectGroup(group) {
+    featureLayerMap.forEach((l, pin) => l.setStyle(defaultStyle(pin)));
+    group.features.forEach(f => {
+      const l = featureLayerMap.get(f.properties.PIN);
+      if (l) l.setStyle(STYLE_SELECTED);
+    });
+  }
+
+  function clearSelection() {
+    featureLayerMap.forEach((l, pin) => l.setStyle(defaultStyle(pin)));
+  }
+
+  map.on('popupclose', clearSelection);
+
+  const zoomHint = L.control({ position: 'bottomleft' });
+  zoomHint.onAdd = () => { const d = L.DomUtil.create('div', 'zoom-hint'); d.textContent = 'Zoom in to load parcels'; return d; };
+  function showZoomHint(on) { try { on ? zoomHint.addTo(map) : map.removeControl(zoomHint); } catch(e) {} }
+
+  function renderParcels() {
+    // Only render features visible in/near the current viewport — prevents SVG bloat
+    const viewBounds = map.getBounds().pad(0.15);
+    const features = Array.from(featureCache.values()).filter(f => {
+      if (!f.geometry) return false;
+      try {
+        const coords = f.geometry.type === 'Polygon'
+          ? f.geometry.coordinates[0]
+          : f.geometry.coordinates.flat(2);
+        const lats = coords.map(([, lat]) => lat);
+        const lngs = coords.map(([lng]) => lng);
+        const fb = L.latLngBounds(
+          [Math.min(...lats), Math.min(...lngs)],
+          [Math.max(...lats), Math.max(...lngs)]
+        );
+        return viewBounds.intersects(fb);
+      } catch(e) { return false; }
+    });
+
+    parcelGroups   = groupByOwner(features);
+    multiGroupPins = new Set(
+      parcelGroups.filter(g => g.features.length > 1)
+        .flatMap(g => g.features.map(f => f.properties.PACKEDPIN || f.properties.PIN))
+        .filter(Boolean)
+    );
+    featureLayerMap = new Map();
+
+    const newBoundary = L.geoJSON({ type: 'FeatureCollection', features }, {
+      style: f => defaultStyle(f.properties.PIN),
+      onEachFeature(feature, layer) {
+        const pid = feature.properties.PACKEDPIN || feature.properties.PIN;
+        if (pid) featureLayerMap.set(pid, layer);
+        layer.on('click', e => {
+          e.originalEvent.stopPropagation();
+          const group = parcelGroups.find(g => g.features.includes(feature)) || { features: [feature] };
+          selectGroup(group);
+          showParcelPopup(feature, e.latlng);
+        });
+      }
+    });
+
+    // Dissolve only the viewport's multi-owner groups (small set — safe)
+    const dissolved = parcelGroups
+      .filter(g => g.features.length > 1)
+      .map(g => { try { return g.features.reduce((a, f) => turf.union(a, f)); } catch(e) { return null; } })
+      .filter(Boolean);
+
+    const newGroupLayer = dissolved.length
+      ? L.geoJSON({ type: 'FeatureCollection', features: dissolved },
+          { interactive: false, style: { color: '#1e2a44', weight: 2.5, opacity: 1, fillColor: '#5b8dee', fillOpacity: 0.05 } })
+      : null;
+
+    // Atomic swap — old features stay visible until new layer is ready
+    if (parcelBoundary)   map.removeLayer(parcelBoundary);
+    if (parcelGroupLayer) map.removeLayer(parcelGroupLayer);
+    newBoundary.addTo(map);
+    if (newGroupLayer) newGroupLayer.addTo(map);
+    parcelBoundary   = newBoundary;
+    parcelGroupLayer = newGroupLayer;
+  }
+
+  function scheduleParcelLoad() {
+    if (!parcelsEnabled) return;
+    if (map.getZoom() < MIN_ZOOM) { showZoomHint(true); return; }
+    showZoomHint(false);
+    clearTimeout(parcelLoadTimer);
+    parcelLoadTimer = setTimeout(loadParcels, 400);
+  }
+
+  function loadParcels() {
+    if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
+
+    L.esri.query({ url: PARCELS_URL })
+      .within(map.getBounds().pad(0.3))
+      .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
+      .run(function(error, fc) {
+        if (error) { console.error('Parcel query error:', error); return; }
+        if (!fc) return;
+
+        if (fc.exceededTransferLimit)
+          console.warn('⚠ Record limit hit — zoom in for complete coverage');
+
+        // Cap cache to prevent memory growth
+        if (featureCache.size > 2500) featureCache.clear();
+
+        fc.features.forEach(f => {
+          const id = f.properties.PACKEDPIN || f.properties.PIN;
+          if (id) featureCache.set(id, f);
+        });
+
+        renderParcels();
+      });
+  }
+
+  function showParcelPopup(feature, latlng) {
+    const p = feature.properties;
+    const group = parcelGroups.find(g => g.features.includes(feature));
+    let html = '';
+
+    if (group && group.features.length > 1) {
+      const totalAcres    = group.features.reduce((s, f) => s + (parseFloat(f.properties.CALC_ACRE) || 0), 0);
+      const totalSEV      = group.features.reduce((s, f) => s + (parseInt(f.properties.ASSESSED)   || 0), 0);
+      const totalTaxable  = group.features.reduce((s, f) => s + (parseInt(f.properties.TAXABLE)    || 0), 0);
+      html += `<div class="popup-title">${group.canonicalName}</div>`;
+      html += `<div class="popup-row">Total acreage: <span>${totalAcres.toFixed(2)} ac</span></div>`;
+      html += `<div class="popup-row">Parcels in view: <span>${group.features.length}</span></div>`;
+      if (totalSEV)     html += `<div class="popup-row">Combined SEV: <span>$${totalSEV.toLocaleString()}</span></div>`;
+      if (totalTaxable) html += `<div class="popup-row">Combined taxable: <span>$${totalTaxable.toLocaleString()}</span></div>`;
+      html += `<div class="popup-divider"></div>`;
+      html += `<div class="popup-section-label">This parcel</div>`;
+    } else {
+      html += `<div class="popup-title">${p.OWNER_NAME || '—'}</div>`;
+    }
+
+    if (p.CALC_ACRE)  html += `<div class="popup-row">Acreage: <span>${parseFloat(p.CALC_ACRE).toFixed(2)} ac</span></div>`;
+    if (p.P_ADDRESS)  html += `<div class="popup-row">Address: <span>${p.P_ADDRESS}</span></div>`;
+    if (p.OWNER_ADDR) html += `<div class="popup-row">Owner address: <span>${p.OWNER_ADDR}</span></div>`;
+    if (p.CLASS)      html += `<div class="popup-row">Class: <span>${p.CLASS}</span></div>`;
+    if (p.ASSESSED)   html += `<div class="popup-row">SEV: <span>$${parseInt(p.ASSESSED).toLocaleString()}</span></div>`;
+    if (p.TAXABLE)    html += `<div class="popup-row">Taxable: <span>$${parseInt(p.TAXABLE).toLocaleString()}</span></div>`;
+    if (p.PIN)        html += `<div class="popup-row">PIN: <span>${p.PIN}</span></div>`;
+
+    L.popup({ maxWidth: 280 }).setLatLng(latlng).setContent(html).openOn(map);
+  }
+
+  // ── USFS Reforestation (FACTS) ────────────────────────────────────
+  const REFOR_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8';
+
+  function reforColor(fy) {
+    const y = parseInt(fy) || 0;
+    if (y < 1945) return '#7a5c3a';
+    if (y < 1970) return '#8a7a3a';
+    if (y < 1990) return '#5a8a5a';
+    if (y < 2010) return '#3a8a6a';
+    return '#2aaa7a';
+  }
+
+  let reforLayer = null;
+
+  document.getElementById('chk-refor').addEventListener('change', e => {
+    if (e.target.checked) {
+      if (!reforLayer) {
+        reforLayer = L.esri.featureLayer({
+          url: REFOR_URL,
+          simplifyFactor: 0.35,
+          precision: 5,
+          style: feature => {
+            const color = reforColor(feature.properties.FY_COMPLETED);
+            return { color: '#22222255', weight: 0.5, fillColor: color, fillOpacity: 0.55 };
+          },
+          onEachFeature(feature, layer) {
+            layer.on('click', e => {
+              e.originalEvent.stopPropagation();
+              const p = feature.properties;
+              const year  = p.FY_COMPLETED || (p.DATE_COMPLETED ? new Date(p.DATE_COMPLETED).getFullYear() : null);
+              const acres = parseFloat(p.GIS_ACRES);
+              const color = reforColor(p.FY_COMPLETED);
+              let html = `<div class="popup-title" style="display:flex;align-items:center;gap:6px">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>
+                ${p.ACTIVITY_NAME || 'Reforestation'}
+              </div>`;
+              if (p.CAUSAL_AGENT)        html += `<div class="popup-row">Cause: <span>${p.CAUSAL_AGENT}</span></div>`;
+              if (year)                  html += `<div class="popup-row">Completed: <span>${year}</span></div>`;
+              if (p.TREATMENT_TYPE)      html += `<div class="popup-row">Treatment: <span>${p.TREATMENT_TYPE}</span></div>`;
+              if (p.SALE_NAME)           html += `<div class="popup-row">Sale: <span>${p.SALE_NAME}</span></div>`;
+              if (acres)                 html += `<div class="popup-row">Acres: <span>${acres.toFixed(1)}</span></div>`;
+              if (p.ADMIN_DISTRICT_NAME) html += `<div class="popup-row">District: <span>${p.ADMIN_DISTRICT_NAME}</span></div>`;
+              L.popup({ maxWidth: 280 }).setLatLng(e.latlng).setContent(html).openOn(map);
+            });
+          }
+        });
+      }
+      reforLayer.addTo(map);
+    } else {
+      if (reforLayer) map.removeLayer(reforLayer);
+    }
+  });
+
+  // ── LANDFIRE Fire Fuel Model (FBFM40) ─────────────────────────────
+  const fbfmLayer = L.esri.imageMapLayer({
+    url: 'https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer',
+    opacity: 0.65,
+    attribution: 'LANDFIRE 2022 — USFS/DOI'
+  });
+
+  document.getElementById('chk-fbfm').addEventListener('change', e => {
+    e.target.checked ? fbfmLayer.addTo(map) : map.removeLayer(fbfmLayer);
+  });
+
+  // ── County layers (contours + soils) ─────────────────────────────
+  const COUNTY_MS = 'https://arcgisweb.countyofnewaygo.com/hosting/rest/services/WebMaps/PublicCountyViewerProV3/MapServer';
+
+  const roadsLayer    = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [5],  opacity: 0.9 });
+  const contoursLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [16], opacity: 0.7 });
+  const soilsLayer    = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [32], opacity: 0.7 });
+
+  document.getElementById('chk-roads').addEventListener('change', e => {
+    e.target.checked ? roadsLayer.addTo(map) : map.removeLayer(roadsLayer);
+  });
+
+  document.getElementById('chk-contours').addEventListener('change', e => {
+    e.target.checked ? contoursLayer.addTo(map) : map.removeLayer(contoursLayer);
+  });
+
+  document.getElementById('chk-soils').addEventListener('change', e => {
+    e.target.checked ? soilsLayer.addTo(map) : map.removeLayer(soilsLayer);
+  });
+
+  // ── NLCD Land Cover ───────────────────────────────────────────────
+  const nlcdLayer = L.tileLayer.wms('https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms', {
+    layers: 'NLCD_2021_Land_Cover_L48',
+    format: 'image/png',
+    transparent: true,
+    opacity: 0.7,
+    attribution: 'USGS MRLC — NLCD 2021'
+  });
+
+  document.getElementById('chk-nlcd').addEventListener('change', e => {
+    e.target.checked ? nlcdLayer.addTo(map) : map.removeLayer(nlcdLayer);
+  });
+
+  // ── Pre-settlement vegetation ─────────────────────────────────────
+  const VEG_URL = 'https://services1.arcgis.com/4ezfu5dIwH83BUNL/ArcGIS/rest/services/Michigan_Land_Cover_Circa_1800/FeatureServer/0';
+
+  const VEG_COLORS = {
+    'ASPEN-BIRCH FOREST':               '#F40000',
+    'BEECH-SUGAR MAPLE FOREST':         '#E59898',
+    'BEECH-SUGAR MAPLE-HEMLOCK FOREST': '#98E598',
+    'BLACK ASH SWAMP':                  '#CC5F00',
+    'BLACK OAK BARREN':                 '#FED5A7',
+    'CEDAR SWAMP':                      '#00A700',
+    'EXPOSED BEDROCK':                  '#FEAC00',
+    'GRASSLAND':                        '#FFFF00',
+    'HEMLOCK-YELLOW BIRCH FOREST':      '#C1E500',
+    'HEMLOCK-WHITE PINE FOREST':        '#88CC88',
+    'JACK PINE-RED PINE FOREST':        '#E5E598',
+    'LAKE/RIVER':                       '#00E5E5',
+    'MIXED CONIFER SWAMP':              '#00F400',
+    'MIXED HARDWOOD SWAMP':             '#CC5F00',
+    'MIXED OAK FOREST':                 '#CCAC00',
+    'MIXED OAK SAVANNA':                '#FEFAC2',
+    'MIXED PINE-OAK FOREST':            '#CCBD88',
+    'MUSKEG/BOG':                       '#CBCBCB',
+    'OAK-HICKORY FOREST':               '#FEA7BF',
+    'OAK/PINE BARRENS':                 '#FED5A7',
+    'PINE BARRENS':                     '#FEFEA7',
+    'RED PINE-WHITE PINE FOREST':       '#E5C198',
+    'SAND DUNE':                        '#FFFF00',
+    'SHRUB SWAMP/EMERGENT MARSH':       '#C2FBFE',
+    'SPRUCE-FIR-CEDAR FOREST':          '#ACCC00',
+    'SUGAR MAPLE-HEMLOCK FOREST':       '#B7DF86',
+    'SUGAR MAPLE-BASSWOOD FOREST':      '#B4FE00',
+    'SUGAR MAPLE-YELLOW BIRCH FOREST':  '#D5FEA7',
+    'WET PRAIRIE':                      '#ADA4FE',
+    'WHITE PINE-MIXED HARDWOOD FOREST': '#E59800',
+    'WHITE PINE-WHITE OAK FOREST':      '#CCBD88'
+  };
+
+  let vegLayer = null;
+
+  document.getElementById('chk-veg').addEventListener('change', e => {
+    if (e.target.checked) {
+      if (!vegLayer) {
+        vegLayer = L.esri.featureLayer({
+          url: VEG_URL,
+          simplifyFactor: 0.35,
+          precision: 5,
+          style: feature => ({
+            color: '#33333366',
+            weight: 0.5,
+            fillColor: VEG_COLORS[feature.properties.COVERTYPE] || '#aaaaaa',
+            fillOpacity: 0.55
+          }),
+          onEachFeature(feature, layer) {
+            layer.on('click', e => {
+              e.originalEvent.stopPropagation();
+              const p = feature.properties;
+              let html = `<div class="popup-title">${p.COVERTYPE || '—'}</div>`;
+              if (p.ACRES) html += `<div class="popup-row">Area: <span>${parseFloat(p.ACRES).toFixed(1)} ac</span></div>`;
+              L.popup({ maxWidth: 260 }).setLatLng(e.latlng).setContent(html).openOn(map);
+            });
+          }
+        });
+      }
+      vegLayer.addTo(map);
+    } else {
+      if (vegLayer) map.removeLayer(vegLayer);
+    }
+  });
+
+  // ── Public Lands + Browse ─────────────────────────────────────
+  const PL_MIN_ZOOM = 11;
+
+  const PL_CFG = {
+    school: {
+      label: 'School Forest', navLabel: 'School Forests',
+      fill: '#7b5e9e', border: '#5a4070',
+      url: PARCELS_URL,
+      where: "(UPPER(OWNER_NAME) LIKE '%SCH DIST%' OR UPPER(OWNER_NAME) LIKE '%PUBLIC SCHOOL%' OR UPPER(OWNER_NAME) LIKE '%SCHOOL DIST%') AND CALC_ACRE > 20",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    govt: {
+      label: 'County / City', navLabel: 'County / City',
+      fill: '#8b6f3e', border: '#6a5030',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%COUNTY OF NEWAYGO%' OR UPPER(OWNER_NAME) LIKE '%NEWAYGO COUNTY%' OR UPPER(OWNER_NAME) LIKE '%CITY OF %' OR UPPER(OWNER_NAME) LIKE '%VILLAGE OF %'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    usfs: {
+      label: 'USFS', navLabel: 'USFS',
+      fill: '#2d6a4f', border: '#1a4a33',
+      url: PARCELS_URL,
+      where: "OWNER_NAME = 'U S GOVT'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    dnr: {
+      label: 'MI DNR', navLabel: 'MI DNR',
+      fill: '#52796f', border: '#3a5a52',
+      url: 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0',
+      where: "County = 'NEWAYGO'",
+      nameField: 'DivisionDepartment', acreField: 'Acreage',
+      subField: 'LegalDescription'
+    },
+    conservancy: {
+      label: 'Conservancy / Preserve', navLabel: 'Conservancy / Preserve',
+      fill: '#5aaa6a', border: '#3a8a4a',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%CONSERVANCY%' OR UPPER(OWNER_NAME) LIKE '%MICHIGAN NATURE%' OR UPPER(OWNER_NAME) LIKE '%LAND TRUST%' OR UPPER(OWNER_NAME) LIKE '%CONSERVATION DIST%' OR UPPER(OWNER_NAME) LIKE '%SANCTUARY%' OR UPPER(OWNER_NAME) LIKE '%PRESERVE%' OR UPPER(OWNER_NAME) LIKE '%CONSERVATION CLUB%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    township: {
+      label: 'Township', navLabel: 'Township Land',
+      fill: '#3a7a8a', border: '#2a5a6a',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%TOWNSHIP%' AND UPPER(OWNER_NAME) NOT LIKE '%CEMETERY%' AND UPPER(OWNER_NAME) NOT LIKE '%LLC%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    cemetery: {
+      label: 'Cemetery', navLabel: 'Cemeteries',
+      fill: '#9c8aa0', border: '#7a6a80',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%CEMETERY%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    }
+  };
+
+  let publicLandsEnabled = false;
+  let publicLandsLayer = null;
+  const plCache = {};
+
+  function fetchPLCat(cat, cb) {
+    if (plCache[cat] !== undefined) { cb(plCache[cat]); return; }
+    const cfg = PL_CFG[cat];
+    const q = L.esri.query({ url: cfg.url });
+    if (cfg.where) q.where(cfg.where);
+    q.run((err, fc) => {
+      if (err) console.warn(`PL fetch error [${cat}]:`, err);
+      plCache[cat] = (!err && fc) ? fc.features.filter(f => f.geometry) : [];
+      cb(plCache[cat]);
+    });
+  }
+
+  function buildPLLayer() {
+    const feats = [];
+    Object.keys(PL_CFG).forEach(cat => {
+      (plCache[cat] || []).forEach(f => {
+        feats.push({ type: 'Feature', geometry: f.geometry,
+          properties: { ...f.properties, _cat: cat } });
+      });
+    });
+    return L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+      style: f => {
+        const c = PL_CFG[f.properties._cat] || {};
+        return { color: c.border || '#555', weight: 1, opacity: 0.9,
+                 fillColor: c.fill || '#777', fillOpacity: 0.38 };
+      },
+      onEachFeature(feature, layer) {
+        layer.on('click', e => {
+          e.originalEvent.stopPropagation();
+          const p = feature.properties;
+          const cfg = PL_CFG[p._cat] || {};
+          const name = p[cfg.nameField] || '—';
+          const acres = parseFloat(p[cfg.acreField]);
+          let html = `<div class="popup-title">${name}</div>`;
+          if (cfg.subField && p[cfg.subField]) html += `<div class="popup-row">Parcel: <span>${p[cfg.subField]}</span></div>`;
+          if (acres) html += `<div class="popup-row">Acreage: <span>${acres.toFixed(1)} ac</span></div>`;
+          html += `<div class="popup-row">Type: <span>${cfg.label || p._cat}</span></div>`;
+          L.popup({ maxWidth: 260 }).setLatLng(e.latlng).setContent(html).openOn(map);
+        });
+      }
+    });
+  }
+
+  function showPLLayer() {
+    if (publicLandsLayer) map.removeLayer(publicLandsLayer);
+    publicLandsLayer = buildPLLayer();
+    if (map.getZoom() >= PL_MIN_ZOOM) publicLandsLayer.addTo(map);
+  }
+
+  map.on('zoomend', () => {
+    if (!publicLandsEnabled || !publicLandsLayer) return;
+    if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(publicLandsLayer);
+    else if (!map.hasLayer(publicLandsLayer)) publicLandsLayer.addTo(map);
+  });
+
+  function loadPublicLands() {
+    const cats = Object.keys(PL_CFG);
+    let pending = cats.length;
+    cats.forEach(cat => fetchPLCat(cat, () => { if (--pending === 0) showPLLayer(); }));
+  }
+
+  document.getElementById('chk-public-lands').addEventListener('change', e => {
+    publicLandsEnabled = e.target.checked;
+    if (publicLandsEnabled) {
+      loadPublicLands();
+    } else {
+      if (publicLandsLayer) { map.removeLayer(publicLandsLayer); publicLandsLayer = null; }
+    }
+  });
+
+  // ── Browse ─────────────────────────────────────────────────────
+  let browseCat = null;
+  let browseList = [];
+  let browseIdx  = 0;
+  let browseHL   = null;
+
+  function featureBounds(f) {
+    try {
+      const coords = f.geometry.type === 'Polygon'
+        ? f.geometry.coordinates[0]
+        : f.geometry.coordinates.flat(2);
+      const lats = coords.map(([, y]) => y);
+      const lngs = coords.map(([x]) => x);
+      return L.latLngBounds([Math.min(...lats), Math.min(...lngs)],
+                            [Math.max(...lats), Math.max(...lngs)]);
+    } catch(e) { return null; }
+  }
+
+  function browseGo(idx) {
+    browseIdx = idx;
+    const f = browseList[idx];
+    if (!f) return;
+    const cfg = PL_CFG[browseCat] || {};
+    const p = f.properties;
+    const name = p[cfg.nameField] || '—';
+    const acres = parseFloat(p[cfg.acreField]);
+
+    document.getElementById('browse-counter').textContent = `${idx + 1} / ${browseList.length}`;
+    document.getElementById('browse-info').innerHTML =
+      `<div class="browse-info-name">${name}</div>` +
+      (acres ? `<div class="browse-info-detail">${acres.toFixed(1)} ac</div>` : '');
+    document.getElementById('browse-prev').disabled = idx <= 0;
+    document.getElementById('browse-next').disabled = idx >= browseList.length - 1;
+
+    const b = featureBounds(f);
+    if (b) map.flyToBounds(b, { padding: [40, 40], maxZoom: 16 });
+
+    if (browseHL) map.removeLayer(browseHL);
+    browseHL = L.geoJSON(f, {
+      style: { color: '#ffcc44', weight: 2, opacity: 1, fillColor: '#ffcc44', fillOpacity: 0.22 },
+      interactive: false
+    }).addTo(map);
+  }
+
+  function loadBrowseCat(cat) {
+    browseCat = cat;
+    browseList = [];
+    browseIdx = 0;
+    document.getElementById('browse-counter').textContent = '…';
+    document.getElementById('browse-info').innerHTML = '<span class="browse-status">Loading…</span>';
+    document.getElementById('browse-prev').disabled = true;
+    document.getElementById('browse-next').disabled = true;
+    if (browseHL) { map.removeLayer(browseHL); browseHL = null; }
+
+    fetchPLCat(cat, features => {
+      browseList = features;
+      if (!browseList.length) {
+        document.getElementById('browse-counter').textContent = '0 / 0';
+        document.getElementById('browse-info').innerHTML = '<span class="browse-status">No features found</span>';
+        return;
+      }
+      browseGo(0);
+    });
+  }
+
+  document.querySelectorAll('.browse-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.browse-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadBrowseCat(btn.dataset.cat);
+    });
+  });
+
+  document.getElementById('browse-prev').addEventListener('click', () => {
+    if (browseIdx > 0) browseGo(browseIdx - 1);
+  });
+  document.getElementById('browse-next').addEventListener('click', () => {
+    if (browseIdx < browseList.length - 1) browseGo(browseIdx + 1);
+  });
+
+  document.getElementById('chk-parcels').addEventListener('change', e => {
+    parcelsEnabled = e.target.checked;
+    if (parcelsEnabled) {
+      if (map.getZoom() < MIN_ZOOM) showZoomHint(true);
+      else loadParcels();
+    } else {
+      if (parcelBoundary)   { map.removeLayer(parcelBoundary);   parcelBoundary = null; }
+      if (parcelGroupLayer) { map.removeLayer(parcelGroupLayer); parcelGroupLayer = null; }
+      showZoomHint(false);
+      // featureCache kept intact so re-enabling is instant
+    }
+  });
+
+</script>
+</body>
+</html>
