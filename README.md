@@ -1,5 +1,7 @@
 # Newaygo Field Map
 
+**[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
+
 An interactive web map for exploring land parcels, ecological layers, and conservation data in Newaygo County, Michigan. Single HTML file, no build step — runs anywhere with a browser.
 
 ---
