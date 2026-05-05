@@ -871,7 +871,7 @@
       label: 'Township', navLabel: 'Township Land',
       fill: '#3a7a8a', border: '#2a5a6a',
       url: PARCELS_URL,
-      where: "UPPER(OWNER_NAME) LIKE '%TOWNSHIP%' AND UPPER(OWNER_NAME) NOT LIKE '%CEMETERY%' AND UPPER(OWNER_NAME) NOT LIKE '%LLC%'",
+      where: "(UPPER(OWNER_NAME) LIKE '%TOWNSHIP%' OR UPPER(OWNER_NAME) LIKE '%TWP OF%' OR UPPER(OWNER_NAME) LIKE 'TWP %') AND UPPER(OWNER_NAME) NOT LIKE '%CEMETERY%' AND UPPER(OWNER_NAME) NOT LIKE '%LLC%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     cemetery: {
