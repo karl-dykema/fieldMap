@@ -350,9 +350,6 @@
       <input type="checkbox" id="chk-commercial"> Parks &amp; Campgrounds
     </label>
     <label class="check-item">
-      <input type="checkbox" id="chk-poi"> Notable Sites
-    </label>
-    <label class="check-item">
       <input type="checkbox" id="chk-public-lands">
       Public Lands
       <span class="pl-legend">
@@ -1014,87 +1011,6 @@
     }
   });
 
-  // ── Notable Sites (POI) ────────────────────────────────────────
-  const POI_DATA = [
-    { name: "Sailor's Pines Old-Growth White Pine", lat: 43.473, lng: -85.661,
-      type: 'Old-Growth Forest', access: 'Private, open to public',
-      desc: 'Never-logged stand of white pine 30″+ diameter, 100\'+ tall. Quiet visits only — no camping, no fires. North shore of Croton Pond, off 52nd St.' },
-    { name: 'Richmond Woods Nature Preserve', lat: 43.730, lng: -85.800,
-      type: 'Nature Preserve', access: 'Land Conservancy of West Michigan',
-      desc: '120-acre mature forest with bog and wetlands. 1.4-mile trail system. Listed in Old-Growth Forest Network. Near Brohman.' },
-    { name: 'McDuffee Creek Nature Preserve', lat: 43.790, lng: -85.750,
-      type: 'Nature Preserve', access: 'Land Conservancy of West Michigan',
-      desc: '300-acre preserve along McDuffee Creek and the Little South Branch of the Pere Marquette. 4 miles of trails and boardwalks. Opened 2023.' },
-    { name: 'Upriver Nature Preserve', lat: 43.810, lng: -85.750,
-      type: 'Nature Preserve', access: 'Land Conservancy of West Michigan',
-      desc: '146-acre preserve (est. 2022) with 2.2-mile loop trails along the Little South Branch of the Pere Marquette River. Near Bitely.' },
-    { name: 'Coolbough Natural Area', lat: 43.450, lng: -85.728,
-      type: 'Natural Area', access: 'Brooks Township, open to public',
-      desc: '~400-acre natural area with the largest natural dry sand prairie east of the Mississippi. Wetlands, ponds, and barrens. Equestrian and hiking trails.' },
-    { name: 'Newaygo Prairie Nature Sanctuary', lat: 43.460, lng: -85.760,
-      type: 'Nature Sanctuary', access: 'Michigan Nature Association',
-      desc: '110-acre oak and pine barrens with 100+ prairie species including prickly-pear cactus. Open terrain, no formal trails. Preserved since 1969.' },
-    { name: 'Loda Lake Wildflower Sanctuary', lat: 43.6386, lng: -85.8276,
-      type: 'Nature Sanctuary', access: 'USFS / Michigan Garden Clubs',
-      desc: 'Only wildflower sanctuary in the U.S. National Forest system. 72 acres, 400+ plant species, 1.5-mile self-guided boardwalk. Est. 1938. Off M-37 north of White Cloud.' },
-    { name: 'Camp Newaygo Wetland Trail', lat: 43.590, lng: -85.790,
-      type: 'Wetland Trail', access: 'Private camp, trail open 365 days',
-      desc: 'Suspended boardwalk through sphagnum bog. Open sunrise to sunset year-round. Off Centerline Rd. near White Cloud. (Note: 2024 wildfire damaged sections — check conditions.)' },
-    { name: 'Hardy Dam — Dragon Trail (North Trailhead)', lat: 43.5524, lng: -85.5765,
-      type: 'Trail', access: 'Consumers Energy land, public access',
-      desc: '45-mile loop trail around 4,000-acre Hardy Dam Pond. Hiking and mountain biking all skill levels. Partnership between Newaygo/Mecosta Counties and Consumers Energy.' },
-  ];
-
-  const POI_COLORS = {
-    'Old-Growth Forest': '#1a6b2a',
-    'Nature Preserve':   '#2d8a4a',
-    'Natural Area':      '#5aaa6a',
-    'Nature Sanctuary':  '#7b5e9e',
-    'Wetland Trail':     '#3a7a8a',
-    'Private Campground':'#d4923a',
-    'Trail':             '#5b8dee',
-  };
-
-  let poiLayer = null;
-
-  function buildPOILayer() {
-    return L.geoJSON({
-      type: 'FeatureCollection',
-      features: POI_DATA.map(p => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-        properties: p
-      }))
-    }, {
-      pointToLayer(feature, latlng) {
-        const color = POI_COLORS[feature.properties.type] || '#888';
-        return L.circleMarker(latlng, {
-          radius: 7, color: '#fff', weight: 1.5,
-          fillColor: color, fillOpacity: 0.9
-        });
-      },
-      onEachFeature(feature, layer) {
-        layer.on('click', e => {
-          e.originalEvent.stopPropagation();
-          const p = feature.properties;
-          let html = `<div class="popup-title">${p.name}</div>`;
-          html += `<div class="popup-row">Type: <span>${p.type}</span></div>`;
-          html += `<div class="popup-row">Access: <span>${p.access}</span></div>`;
-          html += `<div class="popup-row" style="white-space:normal;line-height:1.4">${p.desc}</div>`;
-          L.popup({ maxWidth: 300 }).setLatLng(e.latlng).setContent(html).openOn(map);
-        });
-      }
-    });
-  }
-
-  document.getElementById('chk-poi').addEventListener('change', e => {
-    if (e.target.checked) {
-      poiLayer = buildPOILayer();
-      poiLayer.addTo(map);
-    } else {
-      if (poiLayer) { map.removeLayer(poiLayer); poiLayer = null; }
-    }
-  });
 
   // ── Browse ─────────────────────────────────────────────────────
   let browseCat = null;
