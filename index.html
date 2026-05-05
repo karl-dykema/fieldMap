@@ -346,9 +346,7 @@
     <label class="check-item pending">
       <input type="checkbox" disabled> Wetlands (NWI)
     </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-commercial"> Parks &amp; Campgrounds
-    </label>
+
     <label class="check-item">
       <input type="checkbox" id="chk-public-lands">
       Public Lands
@@ -972,56 +970,6 @@
     }
   });
 
-  // ── Commercial / Rec land (CLASS 401) ──────────────────────────
-  let commercialLayer = null;
-  let commercialEnabled = false;
-  let commercialCache = null;
-
-  function loadCommercialLayer() {
-    function render(features) {
-      if (commercialLayer) map.removeLayer(commercialLayer);
-      commercialLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
-        style: { color: '#c47a2a', weight: 1, opacity: 0.85,
-                 fillColor: '#d4923a', fillOpacity: 0.38 },
-        onEachFeature(feature, layer) {
-          layer.on('click', e => {
-            e.originalEvent.stopPropagation();
-            const p = feature.properties;
-            const acres = parseFloat(p.CALC_ACRE);
-            let html = `<div class="popup-title">${p.OWNER_NAME || '—'}</div>`;
-            if (acres) html += `<div class="popup-row">Acreage: <span>${acres.toFixed(1)} ac</span></div>`;
-            if (p.P_ADDRESS) html += `<div class="popup-row">Address: <span>${p.P_ADDRESS}</span></div>`;
-            if (p.SEV) html += `<div class="popup-row">SEV: <span>$${parseInt(p.SEV).toLocaleString()}</span></div>`;
-            L.popup({ maxWidth: 260 }).setLatLng(e.latlng).setContent(html).openOn(map);
-          });
-        }
-      });
-      if (map.getZoom() >= PL_MIN_ZOOM) commercialLayer.addTo(map);
-    }
-
-    if (commercialCache) { render(commercialCache); return; }
-    L.esri.query({ url: PARCELS_URL })
-      .where("(UPPER(OWNER_NAME) LIKE '% PARK %' OR UPPER(OWNER_NAME) LIKE '% PARK' OR UPPER(OWNER_NAME) LIKE 'PARK %' OR UPPER(OWNER_NAME) LIKE '%CAMPGROUND%' OR UPPER(OWNER_NAME) LIKE '%CAMP GROUND%' OR UPPER(OWNER_NAME) LIKE '%NATURE CENTER%' OR UPPER(OWNER_NAME) LIKE '%NATURE AREA%' OR UPPER(OWNER_NAME) LIKE '%TRAIL ASSOC%' OR UPPER(OWNER_NAME) LIKE '%RECREATION ASSOC%') AND UPPER(OWNER_NAME) NOT LIKE '%RV PARK%' AND UPPER(OWNER_NAME) NOT LIKE '%TRAILER PARK%'")
-      .run((err, fc) => {
-        commercialCache = (!err && fc) ? fc.features.filter(f => f.geometry) : [];
-        render(commercialCache);
-      });
-  }
-
-  map.on('zoomend', () => {
-    if (!commercialEnabled || !commercialLayer) return;
-    if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(commercialLayer);
-    else if (!map.hasLayer(commercialLayer)) commercialLayer.addTo(map);
-  });
-
-  document.getElementById('chk-commercial').addEventListener('change', e => {
-    commercialEnabled = e.target.checked;
-    if (commercialEnabled) {
-      loadCommercialLayer();
-    } else {
-      if (commercialLayer) { map.removeLayer(commercialLayer); commercialLayer = null; }
-    }
-  });
 
 
   // ── Browse ─────────────────────────────────────────────────────
