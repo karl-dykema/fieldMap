@@ -347,6 +347,9 @@
       <input type="checkbox" disabled> Wetlands (NWI)
     </label>
     <label class="check-item">
+      <input type="checkbox" id="chk-commercial"> Commercial / Rec (CLASS 401)
+    </label>
+    <label class="check-item">
       <input type="checkbox" id="chk-public-lands">
       Public Lands
       <span class="pl-legend">
@@ -954,6 +957,58 @@
       loadPublicLands();
     } else {
       if (publicLandsLayer) { map.removeLayer(publicLandsLayer); publicLandsLayer = null; }
+    }
+  });
+
+  // ── Commercial / Rec land (CLASS 401) ──────────────────────────
+  let commercialLayer = null;
+  let commercialEnabled = false;
+  let commercialCache = null;
+
+  function loadCommercialLayer() {
+    function render(features) {
+      if (commercialLayer) map.removeLayer(commercialLayer);
+      commercialLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+        style: { color: '#c47a2a', weight: 1, opacity: 0.85,
+                 fillColor: '#d4923a', fillOpacity: 0.38 },
+        onEachFeature(feature, layer) {
+          layer.on('click', e => {
+            e.originalEvent.stopPropagation();
+            const p = feature.properties;
+            const acres = parseFloat(p.CALC_ACRE);
+            let html = `<div class="popup-title">${p.OWNER_NAME || '—'}</div>`;
+            if (acres) html += `<div class="popup-row">Acreage: <span>${acres.toFixed(1)} ac</span></div>`;
+            if (p.P_ADDRESS) html += `<div class="popup-row">Address: <span>${p.P_ADDRESS}</span></div>`;
+            html += `<div class="popup-row">Class: <span>${p.CLASS}</span></div>`;
+            if (p.SEV) html += `<div class="popup-row">SEV: <span>$${parseInt(p.SEV).toLocaleString()}</span></div>`;
+            L.popup({ maxWidth: 260 }).setLatLng(e.latlng).setContent(html).openOn(map);
+          });
+        }
+      });
+      if (map.getZoom() >= PL_MIN_ZOOM) commercialLayer.addTo(map);
+    }
+
+    if (commercialCache) { render(commercialCache); return; }
+    L.esri.query({ url: PARCELS_URL })
+      .where("CLASS = '401' AND CALC_ACRE > 10")
+      .run((err, fc) => {
+        commercialCache = (!err && fc) ? fc.features.filter(f => f.geometry) : [];
+        render(commercialCache);
+      });
+  }
+
+  map.on('zoomend', () => {
+    if (!commercialEnabled || !commercialLayer) return;
+    if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(commercialLayer);
+    else if (!map.hasLayer(commercialLayer)) commercialLayer.addTo(map);
+  });
+
+  document.getElementById('chk-commercial').addEventListener('change', e => {
+    commercialEnabled = e.target.checked;
+    if (commercialEnabled) {
+      loadCommercialLayer();
+    } else {
+      if (commercialLayer) { map.removeLayer(commercialLayer); commercialLayer = null; }
     }
   });
 
