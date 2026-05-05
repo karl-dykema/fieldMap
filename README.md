@@ -52,8 +52,8 @@ Flip through public land parcels one by one — choose a category, then page for
 - **Roads** — county road centerlines, server-rendered
 
 ### Export
-- **GeoPDF** — Avenza Maps-compatible; OGC `LGIDict` georeferencing embedded (EPSG:4326 map bounds)
-- **PNG** — filename includes `lat_lon_zoom` for field reference
+- **GeoPDF** *(planned)* — Avenza Maps-compatible; OGC `LGIDict` georeferencing embedded (EPSG:4326 map bounds)
+- **PNG** *(planned)* — filename includes `lat_lon_zoom` for field reference
 
 ### Navigation
 - URL hash position sync (`#lat,lng,zoomz`) — share or bookmark any view
