@@ -39,7 +39,7 @@ Flip through public land parcels one by one — choose a category, then page for
 - **Pre-settlement Vegetation** — Michigan circa 1800 cover types (MNFI)
 - **Land Cover (NLCD 2021)** — current 30m classified raster (MRLC)
 - **Soils** — USDA Web Soil Survey MapunitPoly (NRCS WMS)
-- **Wetlands (NWI)** *(pending)* — USFWS National Wetlands Inventory
+- **Wetlands (Part 303)** — Michigan EGLE regulated wetlands inventory
 
 ### Terrain
 - **Contours (5 ft)** — derived from county LiDAR/DEM
@@ -105,7 +105,7 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 | Pre-settlement vegetation | Michigan Natural Features Inventory (MNFI) |
 | Land cover | USGS MRLC (NLCD 2021) |
 | Soils | USDA NRCS Web Soil Survey |
-| Wetlands | USFWS National Wetlands Inventory |
+| Wetlands | Michigan EGLE / MCGI Part 303 Wetlands Inventory |
 | USFS Reforestation / Timber | USDA Forest Service EDW (FACTS) |
 | Fire Fuel Model | LANDFIRE 2022 (USFS / DOI) |
 | Contours / Roads | Newaygo County GIS |
