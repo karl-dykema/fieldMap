@@ -157,6 +157,32 @@
       color: #ffffff !important;
     }
 
+    .loc-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px !important; height: 28px !important;
+      background: #1a1d2e; border: 1px solid #2a2e44;
+      border-radius: 4px; color: #8a93b4;
+      font-size: 15px; cursor: pointer; padding: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .loc-btn:hover { background: #22263a; color: #dde1f0; }
+    .loc-btn.active { color: #4a9de0; border-color: #3a7dc0; }
+
+    .loc-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #4a9de0;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 0 rgba(74,157,224,0.5);
+      animation: loc-pulse 1.8s infinite;
+    }
+    @keyframes loc-pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(74,157,224,0.5); }
+      70%  { box-shadow: 0 0 0 10px rgba(74,157,224,0); }
+      100% { box-shadow: 0 0 0 0   rgba(74,157,224,0); }
+    }
+
     .leaflet-control-attribution {
       background: rgba(18, 20, 28, 0.75) !important;
       color: #4a5070 !important;
@@ -1141,6 +1167,62 @@
       // featureCache kept intact so re-enabling is instant
     }
   });
+
+  // ── GPS locate ───────────────────────────────────────────────────
+  let locMarker = null, locCircle = null, locWatching = false, locFirstFix = false;
+
+  const LocControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const btn = L.DomUtil.create('button', 'loc-btn');
+      btn.title = 'My location';
+      btn.innerHTML = '⊕';
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, 'click', () => {
+        if (locWatching) {
+          map.stopLocate();
+          locWatching = false; locFirstFix = false;
+          btn.classList.remove('active');
+          btn.innerHTML = '⊕';
+          if (locMarker) { map.removeLayer(locMarker); locMarker = null; }
+          if (locCircle) { map.removeLayer(locCircle); locCircle = null; }
+        } else {
+          locWatching = true; locFirstFix = false;
+          btn.classList.add('active');
+          btn.innerHTML = '●';
+          map.locate({ watch: true, enableHighAccuracy: true });
+        }
+      });
+      return btn;
+    }
+  });
+  map.addControl(new LocControl());
+
+  map.on('locationfound', e => {
+    if (!locWatching) return;
+    if (!locFirstFix) {
+      map.setView(e.latlng, Math.max(map.getZoom(), 15));
+      locFirstFix = true;
+    }
+    if (locMarker) {
+      locMarker.setLatLng(e.latlng);
+    } else {
+      locMarker = L.marker(e.latlng, {
+        icon: L.divIcon({ className: 'loc-dot', iconSize: [14,14], iconAnchor: [7,7] }),
+        zIndexOffset: 1000
+      }).addTo(map);
+    }
+    if (locCircle) {
+      locCircle.setLatLng(e.latlng).setRadius(e.accuracy / 2);
+    } else {
+      locCircle = L.circle(e.latlng, {
+        radius: e.accuracy / 2,
+        color: '#4a9de0', fillColor: '#4a9de0', fillOpacity: 0.08, weight: 1
+      }).addTo(map);
+    }
+  });
+
+  map.on('locationerror', e => console.warn('GPS:', e.message));
 
   // ── (Forest Analysis removed) ──────────────────────────────────
 
