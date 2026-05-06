@@ -1357,30 +1357,57 @@
           });
         }
 
-        // Draw open popup if any (inline page CSS so dark theme renders correctly)
+        // Draw open popup using canvas 2D only — no SVG/foreignObject/external
+        // resources so the canvas stays untainted regardless of active layers.
         if (map._popup && map._popup._container) {
           const popEl  = map._popup._container;
           const mapBox = mapEl.getBoundingClientRect();
           const popBox = popEl.getBoundingClientRect();
-          const pX = popBox.left - mapBox.left;
-          const pY = popBox.top  - mapBox.top;
-          const pW = popBox.width;
-          const pH = popBox.height;
-          const css = Array.from(document.styleSheets)
-            .flatMap(s => { try { return Array.from(s.cssRules).map(r => r.cssText); } catch { return []; } })
-            .join('\n');
-          const popSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
-            `<defs><style>${css}</style></defs>` +
-            `<foreignObject x="${pX}" y="${pY}" width="${pW}" height="${pH}">` +
-            `<div xmlns="http://www.w3.org/1999/xhtml">${popEl.outerHTML}</div>` +
-            `</foreignObject></svg>`;
-          const popUrl = URL.createObjectURL(new Blob([popSvg], { type: 'image/svg+xml;charset=utf-8' }));
-          await new Promise(res => {
-            const img = new Image();
-            img.onload = () => { draw.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(popUrl); res(); };
-            img.onerror = () => { URL.revokeObjectURL(popUrl); res(); };
-            img.src = popUrl;
-          });
+          const pX = Math.round(popBox.left - mapBox.left);
+          const pY = Math.round(popBox.top  - mapBox.top);
+
+          const lines = (map._popup.getContent() || '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/div>/gi, '\n')
+            .replace(/<[^>]+>/g, '')
+            .split('\n')
+            .map(l => l.trim())
+            .filter(Boolean);
+
+          if (lines.length) {
+            const pad = 10, lh = 17, titleH = 20;
+            const bW  = Math.min(260, W - pX - 8);
+            const bH  = titleH + (lines.length - 1) * lh + pad * 2;
+
+            // Box
+            draw.fillStyle = 'rgba(22,26,46,0.96)';
+            draw.strokeStyle = '#3a3e5a';
+            draw.lineWidth = 1;
+            draw.beginPath();
+            const r = 6;
+            draw.moveTo(pX + r, pY);
+            draw.lineTo(pX + bW - r, pY);
+            draw.arcTo(pX+bW, pY,    pX+bW, pY+r,    r);
+            draw.lineTo(pX+bW, pY+bH-r);
+            draw.arcTo(pX+bW, pY+bH, pX+bW-r, pY+bH, r);
+            draw.lineTo(pX+r,  pY+bH);
+            draw.arcTo(pX,     pY+bH, pX,      pY+bH-r, r);
+            draw.lineTo(pX,    pY+r);
+            draw.arcTo(pX,     pY,    pX+r,    pY,      r);
+            draw.closePath();
+            draw.fill();
+            draw.stroke();
+
+            // Text
+            draw.font = `bold 12px system-ui,sans-serif`;
+            draw.fillStyle = '#dde1f0';
+            draw.fillText(lines[0], pX + pad, pY + pad + 13, bW - pad * 2);
+            draw.font = `11px system-ui,sans-serif`;
+            draw.fillStyle = '#8a93b4';
+            lines.slice(1).forEach((l, i) => {
+              draw.fillText(l, pX + pad, pY + pad + titleH + i * lh + 4, bW - pad * 2);
+            });
+          }
         }
 
         // Branding strip
