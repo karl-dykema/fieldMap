@@ -295,6 +295,61 @@
     .browse-info-detail { font-size: 11px; color: #8a93b4; }
     .browse-status { font-size: 11px; color: #4a5070; font-style: italic; }
 
+    .export-btn {
+      display: block; width: 100%;
+      padding: 7px 0;
+      border-radius: 4px;
+      border: 1px solid #3a6e80;
+      background: #0f1e28;
+      color: #7ecfdf;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      margin-bottom: 5px;
+      letter-spacing: 0.02em;
+    }
+    .export-btn:hover:not(:disabled) { background: #152a38; color: #b0e8f0; border-color: #5aacbc; }
+    .export-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Map legend bar ──────────────────────────────────── */
+    #map-legend {
+      position: fixed;
+      bottom: 0;
+      left: 260px;
+      right: 0;
+      z-index: 900;
+      background: rgba(12, 15, 26, 0.9);
+      border-top: 1px solid #2a2e44;
+      padding: 5px 12px;
+      display: none;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      align-items: center;
+      pointer-events: none;
+    }
+    .legend-section {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #4a5070;
+      margin-right: 2px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #8a93b4;
+      white-space: nowrap;
+    }
+    .legend-swatch {
+      width: 11px; height: 11px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
 
   </style>
 </head>
@@ -385,10 +440,15 @@
     <div id="browse-info"></div>
   </div>
 
+  <div class="section">
+    <div class="section-label">Export</div>
+    <button class="export-btn" id="btn-export-pdf">GeoPDF (Avenza)</button>
+  </div>
 
 </div>
 
 <div id="map"></div>
+<div id="map-legend"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
@@ -715,6 +775,7 @@
             });
           }
         });
+        reforLayer.on('load', updateLegend);
       }
       reforLayer.addTo(map);
     } else {
@@ -838,6 +899,7 @@
             });
           }
         });
+        vegLayer.on('load', updateLegend);
       }
       vegLayer.addTo(map);
     } else {
@@ -1082,6 +1144,225 @@
 
   // ── (Forest Analysis removed) ──────────────────────────────────
 
+  // ── Map legend ───────────────────────────────────────────────────
+  const REFOR_DECADES = [
+    { label: 'Pre-1945', color: '#7a5c3a' },
+    { label: '1945–69',  color: '#8a7a3a' },
+    { label: '1970–89',  color: '#5a8a5a' },
+    { label: '1990–09',  color: '#3a8a6a' },
+    { label: '2010+',    color: '#2aaa7a' },
+  ];
+
+  function shortVegLabel(t) {
+    return t
+      .replace(/ FOREST$/i, '').replace(/ SWAMP$/i, ' Swamp')
+      .replace(/SHRUB SWAMP\/EMERGENT MARSH/i, 'Shrub-Emergent')
+      .replace(/LAKE\/RIVER/i, 'Lake/River')
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  function updateLegend() {
+    const el = document.getElementById('map-legend');
+    const parts = [];
+
+    // Pre-settlement vegetation — show only cover types visible in current view
+    if (document.getElementById('chk-veg').checked && vegLayer) {
+      const seen = new Map(); // type → color
+      vegLayer.eachFeature(layer => {
+        const ct = layer.feature?.properties?.COVERTYPE;
+        if (ct && !seen.has(ct)) seen.set(ct, VEG_COLORS[ct] || '#aaaaaa');
+      });
+      if (seen.size) {
+        parts.push('<span class="legend-section">Veg</span>');
+        seen.forEach((color, type) => {
+          parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${shortVegLabel(type)}</span>`);
+        });
+      }
+    }
+
+    // USFS Reforestation — show only decades present in current view
+    if (document.getElementById('chk-refor').checked && reforLayer) {
+      const presentDecades = new Set();
+      reforLayer.eachFeature(layer => {
+        const fy = parseInt(layer.feature?.properties?.FY_COMPLETED) || 0;
+        if      (fy < 1945) presentDecades.add('Pre-1945');
+        else if (fy < 1970) presentDecades.add('1945–69');
+        else if (fy < 1990) presentDecades.add('1970–89');
+        else if (fy < 2010) presentDecades.add('1990–09');
+        else                presentDecades.add('2010+');
+      });
+      if (presentDecades.size) {
+        parts.push('<span class="legend-section">Reforestation</span>');
+        REFOR_DECADES.filter(d => presentDecades.has(d.label)).forEach(d => {
+          parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${d.color}"></span>${d.label}</span>`);
+        });
+      }
+    }
+
+    // Wetlands
+    if (document.getElementById('chk-wetlands').checked) {
+      parts.push('<span class="legend-item"><span class="legend-swatch" style="background:#4a9eb5;border-color:#3a7e95"></span>Wetlands (Part 303)</span>');
+    }
+
+    if (parts.length === 0) {
+      el.style.display = 'none';
+    } else {
+      el.style.display = 'flex';
+      el.innerHTML = parts.join('');
+    }
+  }
+
+  // Trigger legend update on any overlay toggle or map move
+  document.querySelectorAll('#sidebar input[type="checkbox"]').forEach(cb =>
+    cb.addEventListener('change', updateLegend)
+  );
+  map.on('moveend', updateLegend);
+
+  // ── GeoPDF export ────────────────────────────────────────────────
+  document.getElementById('btn-export-pdf').addEventListener('click', () => {
+    const btn = document.getElementById('btn-export-pdf');
+    btn.textContent = 'Capturing…';
+    btn.disabled = true;
+
+    leafletImage(map, async (err, tilesCanvas) => {
+      if (err) {
+        console.error('leaflet-image:', err);
+        btn.textContent = 'GeoPDF (Avenza)';
+        btn.disabled = false;
+        return;
+      }
+      try {
+        btn.textContent = 'Building…';
+        // Derive W/H from tilesCanvas — keeps PDF page size and geo registration
+        // consistent with what leafletImage actually captured, regardless of any
+        // layout shift (scrollbar, resize) that may have occurred during the call.
+        const W    = tilesCanvas.width;
+        const H    = tilesCanvas.height;
+        const b    = map.getBounds();
+        const z    = map.getZoom();
+        const c    = map.getCenter();
+        const mapEl = document.getElementById('map');
+
+        // Composite: tile layers (from leafletImage) + SVG vector layers
+        // leafletImage captures tiles but silently drops SVG overlays in Leaflet 1.9
+        const out  = document.createElement('canvas');
+        out.width  = W; out.height = H;
+        const draw = out.getContext('2d');
+        if (tilesCanvas) draw.drawImage(tilesCanvas, 0, 0);
+
+        for (const svgEl of mapEl.querySelectorAll('.leaflet-pane svg')) {
+          const pos  = L.DomUtil.getPosition(svgEl) || { x: 0, y: 0 };
+          const left = pos.x;
+          const top  = pos.y;
+          const svgW = parseFloat(svgEl.getAttribute('width'))  || W;
+          const svgH = parseFloat(svgEl.getAttribute('height')) || H;
+          const clone = svgEl.cloneNode(true);
+          clone.setAttribute('width', svgW);
+          clone.setAttribute('height', svgH);
+          // Remove Leaflet's viewport clipPath — canvas bounds handle clipping instead
+          clone.querySelectorAll('[clip-path]').forEach(el => el.removeAttribute('clip-path'));
+          const blobUrl = URL.createObjectURL(
+            new Blob([new XMLSerializer().serializeToString(clone)],
+                     { type: 'image/svg+xml;charset=utf-8' })
+          );
+          await new Promise(res => {
+            const img = new Image();
+            img.onload = () => { draw.drawImage(img, left, top, svgW, svgH); URL.revokeObjectURL(blobUrl); res(); };
+            img.onerror = () => { URL.revokeObjectURL(blobUrl); res(); };
+            img.src = blobUrl;
+          });
+        }
+
+        // Draw open popup if any (inline page CSS so dark theme renders correctly)
+        if (map._popup && map._popup._container) {
+          const popEl  = map._popup._container;
+          const mapBox = mapEl.getBoundingClientRect();
+          const popBox = popEl.getBoundingClientRect();
+          const pX = popBox.left - mapBox.left;
+          const pY = popBox.top  - mapBox.top;
+          const pW = popBox.width;
+          const pH = popBox.height;
+          const css = Array.from(document.styleSheets)
+            .flatMap(s => { try { return Array.from(s.cssRules).map(r => r.cssText); } catch { return []; } })
+            .join('\n');
+          const popSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
+            `<defs><style>${css}</style></defs>` +
+            `<foreignObject x="${pX}" y="${pY}" width="${pW}" height="${pH}">` +
+            `<div xmlns="http://www.w3.org/1999/xhtml">${popEl.outerHTML}</div>` +
+            `</foreignObject></svg>`;
+          const popUrl = URL.createObjectURL(new Blob([popSvg], { type: 'image/svg+xml;charset=utf-8' }));
+          await new Promise(res => {
+            const img = new Image();
+            img.onload = () => { draw.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(popUrl); res(); };
+            img.onerror = () => { URL.revokeObjectURL(popUrl); res(); };
+            img.src = popUrl;
+          });
+        }
+
+        // Branding strip
+        const brandH = 22;
+        draw.fillStyle = 'rgba(12,15,26,0.84)';
+        draw.fillRect(0, H - brandH, W, brandH);
+        draw.fillStyle = '#546080';
+        draw.font = '10px system-ui,sans-serif';
+        draw.textAlign = 'center';
+        draw.textBaseline = 'middle';
+        draw.fillText(
+          'Newaygo County Field Map  •  Leaflet.js + esri-leaflet  •  github.com/karl-dykema/fieldMap',
+          W / 2, H - brandH / 2
+        );
+        draw.textAlign = 'left';
+        draw.textBaseline = 'alphabetic';
+
+        const imgBytes = await new Promise((res, rej) =>
+          out.toBlob(blob => blob ? blob.arrayBuffer().then(res) : rej('tainted canvas'), 'image/png')
+        );
+
+        const { PDFDocument, PDFName, PDFString } = PDFLib;
+        const pdfDoc = await PDFDocument.create();
+        const page   = pdfDoc.addPage([W, H]);
+        const png    = await pdfDoc.embedPng(imgBytes);
+        page.drawImage(png, { x: 0, y: 0, width: W, height: H });
+
+        // OGC LGIDict — PDF origin is bottom-left; (0,H) = top of page = north
+        const pdfCtx = pdfDoc.context;
+        const lgi = pdfCtx.obj({
+          Type:         PDFName.of('LGIDict'),
+          Version:      PDFString.of('2.1'),
+          Description:  PDFString.of('Newaygo County Field Map'),
+          Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
+          Registration: pdfCtx.obj([
+            [0, 0, b.getWest(),  b.getSouth()],
+            [W, 0, b.getEast(),  b.getSouth()],
+            [W, H, b.getEast(),  b.getNorth()],
+            [0, H, b.getWest(),  b.getNorth()],
+          ]),
+          Projection: pdfCtx.obj({
+            Type:           PDFName.of('Projection'),
+            ProjectionType: PDFString.of('GEOGRAPHIC'),
+            Datum:          PDFString.of('WGS84'),
+            Units:          PDFString.of('DEGREES'),
+          }),
+        });
+        page.node.set(PDFName.of('LGIDict'), lgi);
+
+        const bytes = await pdfDoc.save();
+        const url   = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        const a     = document.createElement('a');
+        a.href     = url;
+        a.download = `newaygo_${c.lat.toFixed(4)}_${c.lng.toFixed(4)}_z${z}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error('GeoPDF export failed:', e);
+        alert('Export failed — some tile layers may block canvas capture due to CORS. Try with just OSM or ESRI base layer active.');
+      }
+      btn.textContent = 'GeoPDF (Avenza)';
+      btn.disabled = false;
+    });
+  });
 
 </script>
 </body>

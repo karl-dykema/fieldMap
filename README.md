@@ -116,4 +116,4 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 
 ## License
 
-MIT
+[GPL-3.0](LICENSE)
