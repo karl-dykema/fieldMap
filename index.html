@@ -1235,6 +1235,7 @@
   let crownMarkers = [];
   let crownLayerGroup = null;
   let analysisPolygonLayer = null;
+  let analysisPolygonGeoJSON = null;
   let analysisStandArea = 0;
 
   function clearCrownMarkers() {
@@ -1252,19 +1253,26 @@
     crowns.forEach((c, idx) => {
       const lat = north - c.y * latPerPx;
       const lng = west  + c.x * lngPerPx;
+      // Filled (interpolated) crowns shown in lighter cyan; detected in yellow
+      const isFilled = !!c._filled;
       const marker = L.circleMarker([lat, lng], {
-        radius: 5, color: '#ffee44', weight: 1.5,
-        fillColor: '#ffee4444', fillOpacity: 0.5
+        radius: isFilled ? 4 : 5,
+        color: isFilled ? '#44eeff' : '#ffee44',
+        weight: 1.5,
+        fillColor: isFilled ? '#44eeff33' : '#ffee4433',
+        fillOpacity: 0.5
       });
       marker._crownIdx = idx;
       marker._removed = false;
+      marker._filled  = isFilled;
       marker.on('click', e => {
         e.originalEvent.stopPropagation();
         marker._removed = !marker._removed;
         if (marker._removed) {
-          marker.setStyle({ color:'#ff444488', fillColor:'#ff444422', weight:1 });
+          marker.setStyle({ color:'#ff444466', fillColor:'#ff444411', weight:1 });
         } else {
-          marker.setStyle({ color:'#ffee44', fillColor:'#ffee4444', weight:1.5 });
+          const base = marker._filled ? '#44eeff' : '#ffee44';
+          marker.setStyle({ color: base, fillColor: base+'33', weight:1.5 });
         }
         updateCrownCount();
       });
@@ -1329,9 +1337,8 @@
 
       const mppX = widthM  / imgW;
       const mppY = heightM / imgH;
-      const minCrownPx = Math.max(2, Math.round(1.2 / mppX)); // 1.2m min crown radius
 
-      const {crowns, spacing} = await analyzeImage(imgUrl, imgW, imgH, mppX, mppY, minCrownPx);
+      const {crowns, spacing} = await analyzeImage(imgUrl, imgW, imgH, mppX, mppY, bounds, analysisPolygonGeoJSON);
       URL.revokeObjectURL(imgUrl);
 
       const species = document.getElementById('analysis-species').value;
@@ -1350,7 +1357,108 @@
     btn.textContent = 'Scan for Trees';
   }
 
-  function analyzeImage(imgUrl, imgW, imgH, mppX, mppY, minCrownPx) {
+  function filterToPolygon(crowns, bounds, imgW, imgH, polyGeoJSON) {
+    const {west, east, north, south} = bounds;
+    const lngPerPx = (east - west) / imgW;
+    const latPerPx = (north - south) / imgH;
+    return crowns.filter(c => {
+      const lat = north - c.y * latPerPx;
+      const lng = west  + c.x * lngPerPx;
+      return turf.booleanPointInPolygon(turf.point([lng, lat]), polyGeoJSON);
+    });
+  }
+
+  function detectRowAngle(pts) {
+    const nn = pts.map((p,i) => {
+      let best = Infinity;
+      pts.forEach((q,j) => { if (i!==j) { const dx=p.x-q.x,dy=p.y-q.y; best=Math.min(best,Math.sqrt(dx*dx+dy*dy)); } });
+      return best;
+    });
+    nn.sort((a,b)=>a-b);
+    const medNN = nn[Math.floor(nn.length/2)];
+    const maxD  = medNN * 3.5;
+
+    const bins = new Float32Array(180);
+    for (let i=0; i<pts.length; i++) for (let j=i+1; j<pts.length; j++) {
+      const dx=pts[j].x-pts[i].x, dy=pts[j].y-pts[i].y;
+      if (Math.sqrt(dx*dx+dy*dy) > maxD) continue;
+      let a = Math.atan2(dy, dx) * 180 / Math.PI;
+      if (a < 0) a += 180;
+      if (a >= 180) a -= 180;
+      bins[Math.floor(a)]++;
+    }
+    const sm = new Float32Array(180);
+    for (let i=0; i<180; i++) for (let d=-4; d<=4; d++) sm[i] += bins[(i+d+180)%180];
+    let best=0, bv=0;
+    for (let i=0; i<180; i++) if (sm[i]>bv) { bv=sm[i]; best=i; }
+    return best * Math.PI / 180;
+  }
+
+  function improveWithRowDetection(crowns, gei, imgW, imgH, mppX, mppY, bounds, polyGeoJSON) {
+    const angle = detectRowAngle(crowns);
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+
+    const rot = crowns.map(c => ({
+      ...c,
+      rx:  c.x * cosA + c.y * sinA,
+      ry: -c.x * sinA + c.y * cosA,
+    }));
+
+    // Detect row spacing in ry direction
+    const ryS = rot.map(c=>c.ry).sort((a,b)=>a-b);
+    const diffs = [];
+    for (let i=1; i<ryS.length; i++) { const d=ryS[i]-ryS[i-1]; if (d>1) diffs.push(d); }
+    diffs.sort((a,b)=>a-b);
+    const smallD = diffs.filter(d => d < (diffs[diffs.length-1]||1)*0.55);
+    if (!smallD.length) return crowns;
+    const rowSpPx = smallD[Math.floor(smallD.length/2)];
+    const halfRow  = rowSpPx * 0.55;
+
+    // Cluster into rows
+    const usedIdx = new Set();
+    const rowsSorted = [...rot].sort((a,b)=>a.ry-b.ry);
+    const rows = [];
+    rowsSorted.forEach((p, i) => {
+      if (usedIdx.has(i)) return;
+      const row = [p]; usedIdx.add(i);
+      rowsSorted.forEach((q, j) => {
+        if (!usedIdx.has(j) && Math.abs(q.ry - p.ry) < halfRow) { row.push(q); usedIdx.add(j); }
+      });
+      rows.push(row);
+    });
+
+    // Fill gaps within each row
+    const filled = [];
+    rows.forEach(row => {
+      row.sort((a,b)=>a.rx-b.rx);
+      filled.push(...row);
+      if (row.length < 2) return;
+
+      const rxDs = [];
+      for (let i=1; i<row.length; i++) rxDs.push(row[i].rx-row[i-1].rx);
+      rxDs.sort((a,b)=>a-b);
+      const medRX = rxDs[Math.floor(rxDs.length/2)];
+      const rowRY  = row.reduce((s,c)=>s+c.ry,0)/row.length;
+
+      for (let i=1; i<row.length; i++) {
+        const gap = row[i].rx - row[i-1].rx;
+        if (gap > medRX * 1.65) {
+          const n = Math.round(gap / medRX) - 1;
+          for (let k=1; k<=n; k++) {
+            const rxN = row[i-1].rx + k * (gap/(n+1));
+            const xN  = Math.round( rxN*cosA - rowRY*sinA);
+            const yN  = Math.round( rxN*sinA + rowRY*cosA);
+            if (xN>=0 && xN<imgW && yN>=0 && yN<imgH)
+              filled.push({x:xN, y:yN, _filled:true});
+          }
+        }
+      }
+    });
+
+    return filterToPolygon(filled, bounds, imgW, imgH, polyGeoJSON);
+  }
+
+  function analyzeImage(imgUrl, imgW, imgH, mppX, mppY, bounds, polyGeoJSON) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -1361,12 +1469,20 @@
         ctx.drawImage(img, 0, 0, imgW, imgH);
         try {
           const {data} = ctx.getImageData(0, 0, imgW, imgH);
-          // Green Excess Index: 2G - R - B
           const gei = new Float32Array(imgW * imgH);
           for (let i=0; i<imgW*imgH; i++)
             gei[i] = 2*data[i*4+1] - data[i*4] - data[i*4+2];
-          const blurred = boxBlur(gei, imgW, imgH, minCrownPx);
-          const crowns  = findLocalMaxima(blurred, imgW, imgH, minCrownPx, 15);
+
+          const crownR  = Math.max(3, Math.round(2.0 / mppX));   // blur radius = ~2m crown radius
+          const minDist = Math.max(5, Math.round(2.8 / mppX));   // min 2.8m between tree tops
+          const blurred = boxBlur(gei, imgW, imgH, crownR);
+
+          let crowns = findLocalMaxima(blurred, imgW, imgH, minDist, 18);
+          crowns = filterToPolygon(crowns, bounds, imgW, imgH, polyGeoJSON);
+
+          if (crowns.length >= 6)
+            crowns = improveWithRowDetection(crowns, blurred, imgW, imgH, mppX, mppY, bounds, polyGeoJSON);
+
           const spacing = calcSpacingStats(crowns, mppX, mppY);
           resolve({ crowns, spacing });
         } catch(e) { reject(e); }
@@ -1431,6 +1547,7 @@
   function clearAnalysis() {
     clearCrownMarkers();
     if (analysisPolygonLayer) { map.removeLayer(analysisPolygonLayer); analysisPolygonLayer = null; }
+    analysisPolygonGeoJSON = null;
     document.getElementById('analysis-form').style.display = 'none';
     document.getElementById('analysis-results').innerHTML = '';
     document.getElementById('analysis-area').textContent = '';
@@ -1457,9 +1574,9 @@
     if (e.layerType !== 'polygon') return;
     if (analysisDrawer) { analysisDrawer.disable(); analysisDrawer = null; }
 
-    analysisPolygonLayer = e.layer.addTo(map);
-    const geojson = e.layer.toGeoJSON();
-    analysisStandArea = turf.area(geojson) / 4047; // acres
+    analysisPolygonLayer   = e.layer.addTo(map);
+    analysisPolygonGeoJSON = e.layer.toGeoJSON();
+    analysisStandArea = turf.area(analysisPolygonGeoJSON) / 4047;
 
     document.getElementById('btn-analysis-draw').textContent = '▶ Redraw Stand';
     document.getElementById('btn-analysis-draw').classList.remove('active');
