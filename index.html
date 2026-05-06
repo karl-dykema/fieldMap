@@ -753,10 +753,9 @@
   });
 
   // ── Wetlands (NWI) ───────────────────────────────────────────────
-  const wetlandsLayer = L.tileLayer.wms('https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/services/Wetlands/MapServer/WMSServer', {
-    layers: '1',
-    format: 'image/png',
-    transparent: true,
+  const wetlandsLayer = L.esri.dynamicMapLayer({
+    url: 'https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer',
+    layers: [0],
     opacity: 0.7,
     attribution: 'USFWS National Wetlands Inventory'
   });
