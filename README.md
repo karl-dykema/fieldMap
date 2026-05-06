@@ -98,18 +98,19 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 
 ## Data Sources
 
-| Layer | Provider |
-|---|---|
-| Parcel records | Newaygo County GIS |
-| DNR LOTS parcels | Michigan DNR (ArcGIS Online) |
-| Pre-settlement vegetation | Michigan Natural Features Inventory (MNFI) |
-| Land cover | USGS MRLC (NLCD 2021) |
-| Soils | USDA NRCS Web Soil Survey |
-| Wetlands | Michigan EGLE / MCGI Part 303 Wetlands Inventory |
-| USFS Reforestation / Timber | USDA Forest Service EDW (FACTS) |
-| Fire Fuel Model | LANDFIRE 2022 (USFS / DOI) |
-| Contours / Roads | Newaygo County GIS |
-| Base tiles | © OpenStreetMap contributors; Esri, Maxar, Earthstar Geographics |
+| Layer | Provider | Service URL |
+|---|---|---|
+| Parcel records | Newaygo County GIS | `https://arcgisweb.countyofnewaygo.com/hosting/rest/services/WebMaps/PublicCountyViewerProV3/MapServer/2` |
+| Soils | Newaygo County GIS | `…/PublicCountyViewerProV3/MapServer` layer 32 |
+| Contours (5 ft) | Newaygo County GIS | `…/PublicCountyViewerProV3/MapServer` layer 16 |
+| Roads | Newaygo County GIS | `…/PublicCountyViewerProV3/MapServer` layer 5 |
+| DNR LOTS parcels | Michigan DNR (ArcGIS Online) | `https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0` |
+| Pre-settlement vegetation | Michigan Natural Features Inventory (MNFI) | `https://services1.arcgis.com/4ezfu5dIwH83BUNL/ArcGIS/rest/services/Michigan_Land_Cover_Circa_1800/FeatureServer/0` |
+| Land cover (NLCD 2021) | USGS MRLC | `https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms` |
+| Wetlands (Part 303) | Michigan EGLE / MCGI | `https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer` |
+| USFS Reforestation (FACTS) | USDA Forest Service EDW | `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8` |
+| Fire Fuel Model (FBFM40) | LANDFIRE 2022 (USFS / DOI) | `https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer` |
+| Base tiles | © OpenStreetMap contributors; Esri, Maxar, Earthstar Geographics | — |
 
 ---
 
