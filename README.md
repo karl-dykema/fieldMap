@@ -2,7 +2,7 @@
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
-An interactive web map for exploring land parcels, ecological layers, and conservation data in Newaygo County, Michigan. Single HTML file, no build step — runs anywhere with a browser.
+An interactive web map for exploring land parcels, ecological layers, conservation data, and barrens species observations in Newaygo County, Michigan. Single HTML file, no build step — runs anywhere with a browser.
 
 ---
 
@@ -51,13 +51,38 @@ Flip through public land parcels one by one — choose a category, then page for
 ### Infrastructure
 - **Roads** — county road centerlines, server-rendered
 
-### Export
-- **GeoPDF** *(planned)* — Avenza Maps-compatible; OGC `LGIDict` georeferencing embedded (EPSG:4326 map bounds)
-- **PNG** *(planned)* — filename includes `lat_lon_zoom` for field reference
+### Species — iNaturalist (SWAP)
+Research-grade observations from iNaturalist, grouped by taxon. Each species is a separate toggleable tile layer. Collapsible panel. All listed species are Michigan Species of Greatest Conservation Need (SWAP) unless noted.
+
+| Species | Group | SWAP |
+|---|---|---|
+| Karner Blue Butterfly | Insects | ✓ |
+| Dusted Skipper | Insects | ✓ |
+| American Bumble Bee | Insects | ✓ |
+| Red-headed Woodpecker | Birds | ✓ |
+| Eastern Whip-poor-will | Birds | ✓ |
+| Common Nighthawk | Birds | ✓ |
+| Prairie Warbler | Birds | ✓ |
+| Eastern Hognose Snake | Reptiles | ✓ |
+| Blanding's Turtle | Reptiles | ✓ |
+| Eastern Box Turtle | Reptiles | ✓ |
+| Wild Lupine | Plants | — |
+| Butterfly Milkweed | Plants | — |
+| Sweet Crabapple | Plants | — |
+
+Tile source: `https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png?taxon_id={id}&quality_grade=research`
+
+### Dynamic Legend
+Bottom bar shows active layer legend entries — only cover types and reforestation decades currently visible in the viewport. Updates on pan/zoom and layer toggle.
 
 ### Navigation
 - URL hash position sync (`#lat,lng,zoomz`) — share or bookmark any view
+- GPS locate button (top-right) with live tracking and accuracy circle
 - Zoom hint shown when parcels are hidden below zoom 13
+
+### Export
+- **GeoPDF** — Avenza Maps-compatible; OGC `LGIDict` georeferencing embedded (EPSG:4326 map bounds); includes open popup and legend bar
+- Open popup is captured and drawn into the PDF if a parcel is selected at export time
 
 ---
 
@@ -73,7 +98,7 @@ No npm, no bundler — all libraries via CDN.
 | [Turf.js](https://turfjs.org/) | 7.x | Polygon dissolve for ownership groups |
 | [Leaflet.draw](https://github.com/Leaflet/Leaflet.draw) | 1.0.4 | Draw tools (points, lines, polygons) |
 | [pdf-lib](https://pdf-lib.js.org/) | 1.17.1 | GeoPDF creation with embedded OGC LGIDict |
-| [leaflet-image](https://github.com/mapbox/leaflet-image) | — | Canvas capture for PNG export |
+| [leaflet-image](https://github.com/mapbox/leaflet-image) | 0.4.0 | Canvas capture for PDF export |
 
 ---
 
@@ -110,6 +135,7 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 | Wetlands (Part 303) | Michigan EGLE / MCGI | `https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer` |
 | USFS Reforestation (FACTS) | USDA Forest Service EDW | `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8` |
 | Fire Fuel Model (FBFM40) | LANDFIRE 2022 (USFS / DOI) | `https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer` |
+| Species observations | iNaturalist (research grade) | `https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png` |
 | Base tiles | © OpenStreetMap contributors; Esri, Maxar, Earthstar Geographics | — |
 
 ---

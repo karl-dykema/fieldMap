@@ -66,6 +66,33 @@
       color: #4a5070;
       margin-bottom: 8px;
     }
+    .species-group {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color: #353850;
+      margin: 6px 0 2px;
+      padding-left: 10px;
+    }
+    .inat-dot {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .species-toggle {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .species-arrow {
+      font-size: 11px;
+      transition: transform 0.15s;
+      color: #4a5070;
+    }
+    .species-arrow.closed { transform: rotate(-90deg); }
 
     /* Base layer radios */
     .radio-item {
@@ -355,7 +382,7 @@
       pointer-events: none;
     }
     .legend-section {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.12em;
@@ -366,12 +393,12 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      font-size: 11px;
+      font-size: 13px;
       color: #8a93b4;
       white-space: nowrap;
     }
     .legend-swatch {
-      width: 11px; height: 11px;
+      width: 13px; height: 13px;
       border-radius: 2px;
       flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.12);
@@ -444,6 +471,87 @@
         <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
       </span>
     </label>
+  </div>
+
+  <div class="section">
+    <div class="section-label species-toggle" id="species-toggle">
+      Species — iNaturalist (SWAP) <span class="species-arrow">▾</span>
+    </div>
+    <div id="species-body">
+
+      <div class="species-group">Insects</div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-karner">
+        <span class="inat-dot" style="background:#1a3d8a"></span>
+        Karner Blue Butterfly
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-dusted">
+        <span class="inat-dot" style="background:#5a4a18"></span>
+        Dusted Skipper
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-ambb">
+        <span class="inat-dot" style="background:#7a6000"></span>
+        American Bumble Bee
+      </label>
+
+      <div class="species-group">Birds</div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-rhwo">
+        <span class="inat-dot" style="background:#a01818"></span>
+        Red-headed Woodpecker
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-wpwl">
+        <span class="inat-dot" style="background:#3d2a10"></span>
+        Eastern Whip-poor-will
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-nighthawk">
+        <span class="inat-dot" style="background:#2a3a4a"></span>
+        Common Nighthawk
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-prwa">
+        <span class="inat-dot" style="background:#4a4a00"></span>
+        Prairie Warbler
+      </label>
+
+      <div class="species-group">Reptiles</div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-hognose">
+        <span class="inat-dot" style="background:#264d18"></span>
+        Eastern Hognose Snake
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-blanding">
+        <span class="inat-dot" style="background:#2e3d10"></span>
+        Blanding's Turtle
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-boxturt">
+        <span class="inat-dot" style="background:#5a3a08"></span>
+        Eastern Box Turtle
+      </label>
+
+      <div class="species-group">Plants</div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-lupine">
+        <span class="inat-dot" style="background:#3d1470"></span>
+        Wild Lupine
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-milkweed">
+        <span class="inat-dot" style="background:#b03000"></span>
+        Butterfly Milkweed
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-crab">
+        <span class="inat-dot" style="background:#903058"></span>
+        Sweet Crabapple
+      </label>
+    </div>
   </div>
 
   <div class="section">
@@ -848,6 +956,47 @@
 
   document.getElementById('chk-wetlands').addEventListener('change', e => {
     e.target.checked ? wetlandsLayer.addTo(map) : map.removeLayer(wetlandsLayer);
+  });
+
+  // ── iNaturalist species layers (SWAP / barrens) ───────────────────
+  // research-grade only; color param tints the point dots.
+  // Note: iNat renders sparse observations as hollow rings (single sightings),
+  // dense/aggregated clusters as filled dots — both are normal tile behavior.
+  const INAT_TILE = 'https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png';
+  const inatOpts  = { opacity: 0.9, maxZoom: 20, attribution: '© iNaturalist contributors (CC BY-NC)' };
+  const inatSpec  = [
+    // [checkboxId, taxonId, hexColor (URL-encoded)]
+    ['karner',   484122, '%231a3d8a'],  // Karner Blue Butterfly
+    ['dusted',    58516, '%235a4a18'],  // Dusted Skipper
+    ['ambb',      56887, '%237a6000'],  // American Bumble Bee
+    ['rhwo',      18204, '%23a01818'],  // Red-headed Woodpecker
+    ['wpwl',     199837, '%233d2a10'],  // Eastern Whip-poor-will
+    ['nighthawk', 19577, '%232a3a4a'],  // Common Nighthawk
+    ['prwa',     145249, '%234a4a00'],  // Prairie Warbler
+    ['hognose',   29925, '%23264d18'],  // Eastern Hognose Snake
+    ['blanding',  39885, '%232e3d10'],  // Blanding's Turtle
+    ['boxturt',   39814, '%235a3a08'],  // Eastern Box Turtle
+    ['lupine',    81528, '%233d1470'],  // Wild Lupine
+    ['milkweed',  47912, '%23b03000'],  // Butterfly Milkweed
+    ['crab',      54831, '%23903058'],  // Sweet Crabapple
+  ];
+  const inatLayers = {};
+  inatSpec.forEach(([key, taxonId, color]) => {
+    inatLayers[key] = L.tileLayer(
+      `${INAT_TILE}?taxon_id=${taxonId}&quality_grade=research&color=${color}`, inatOpts
+    );
+    document.getElementById(`chk-inat-${key}`).addEventListener('change', e => {
+      e.target.checked ? inatLayers[key].addTo(map) : map.removeLayer(inatLayers[key]);
+    });
+  });
+
+  // Collapsible species section
+  document.getElementById('species-toggle').addEventListener('click', () => {
+    const body  = document.getElementById('species-body');
+    const arrow = document.querySelector('#species-toggle .species-arrow');
+    const open  = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
   });
 
   // ── NLCD Land Cover ───────────────────────────────────────────────
@@ -1334,16 +1483,19 @@
         const draw = out.getContext('2d');
         if (tilesCanvas) draw.drawImage(tilesCanvas, 0, 0);
 
+        // SVG compositing: re-render each SVG layer at the viewport's layer-coord window.
+        // Override viewBox to (−mapPanePos, W, H) so the visible container area maps
+        // 1:1 to the canvas at (0,0). Clear the inline CSS transform Leaflet sets on
+        // the SVG element — it would shift content when the SVG is rendered standalone.
+        const mapPaneEl  = mapEl.querySelector('.leaflet-map-pane');
+        const mapPanePos = L.DomUtil.getPosition(mapPaneEl) || { x: 0, y: 0 };
+
         for (const svgEl of mapEl.querySelectorAll('.leaflet-pane svg')) {
-          const pos  = L.DomUtil.getPosition(svgEl) || { x: 0, y: 0 };
-          const left = pos.x;
-          const top  = pos.y;
-          const svgW = parseFloat(svgEl.getAttribute('width'))  || W;
-          const svgH = parseFloat(svgEl.getAttribute('height')) || H;
           const clone = svgEl.cloneNode(true);
-          clone.setAttribute('width', svgW);
-          clone.setAttribute('height', svgH);
-          // Remove Leaflet's viewport clipPath — canvas bounds handle clipping instead
+          clone.setAttribute('viewBox', `${-mapPanePos.x} ${-mapPanePos.y} ${W} ${H}`);
+          clone.setAttribute('width',  W);
+          clone.setAttribute('height', H);
+          clone.style.cssText = '';   // remove translate3d set by Leaflet — would shift standalone render
           clone.querySelectorAll('[clip-path]').forEach(el => el.removeAttribute('clip-path'));
           const blobUrl = URL.createObjectURL(
             new Blob([new XMLSerializer().serializeToString(clone)],
@@ -1351,7 +1503,7 @@
           );
           await new Promise(res => {
             const img = new Image();
-            img.onload = () => { draw.drawImage(img, left, top, svgW, svgH); URL.revokeObjectURL(blobUrl); res(); };
+            img.onload = () => { draw.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(blobUrl); res(); };
             img.onerror = () => { URL.revokeObjectURL(blobUrl); res(); };
             img.src = blobUrl;
           });
@@ -1410,30 +1562,67 @@
           }
         }
 
-        // Branding strip
-        const brandH = 22;
-        draw.fillStyle = 'rgba(12,15,26,0.84)';
-        draw.fillRect(0, H - brandH, W, brandH);
-        draw.fillStyle = '#546080';
-        draw.font = '10px system-ui,sans-serif';
-        draw.textAlign = 'center';
-        draw.textBaseline = 'middle';
-        draw.fillText(
-          'Newaygo County Field Map  •  Leaflet.js + esri-leaflet  •  github.com/karl-dykema/fieldMap',
-          W / 2, H - brandH / 2
-        );
-        draw.textAlign = 'left';
-        draw.textBaseline = 'alphabetic';
-
         const imgBytes = await new Promise((res, rej) =>
           out.toBlob(blob => blob ? blob.arrayBuffer().then(res) : rej('tainted canvas'), 'image/png')
         );
 
-        const { PDFDocument, PDFName, PDFString } = PDFLib;
+        const { PDFDocument, PDFName, PDFString, StandardFonts, rgb } = PDFLib;
         const pdfDoc = await PDFDocument.create();
         const page   = pdfDoc.addPage([W, H]);
         const png    = await pdfDoc.embedPng(imgBytes);
         page.drawImage(png, { x: 0, y: 0, width: W, height: H });
+
+        // Branding strip drawn in PDF layer (not on canvas) so registration stays accurate
+        const brandFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const brandH = 20;
+        page.drawRectangle({ x: 0, y: 0, width: W, height: brandH, color: rgb(0.047, 0.059, 0.102), opacity: 0.84 });
+        const brandText = 'Newaygo County Field Map  •  Leaflet.js + esri-leaflet  •  github.com/karl-dykema/fieldMap';
+        const brandSize = 9;
+        const brandTw = brandFont.widthOfTextAtSize(brandText, brandSize);
+        page.drawText(brandText, { x: Math.max(4, (W - brandTw) / 2), y: 6, size: brandSize, font: brandFont, color: rgb(0.33, 0.38, 0.50), maxWidth: W - 8 });
+
+        // Legend bar in PDF (above branding, mirrors the on-screen legend)
+        const legendEl = document.getElementById('map-legend');
+        if (legendEl.style.display !== 'none') {
+          const legItems = [];
+          for (const child of legendEl.children) {
+            if (child.classList.contains('legend-section')) {
+              legItems.push({ type: 'section', text: child.textContent.trim() });
+            } else if (child.classList.contains('legend-item')) {
+              const swEl = child.querySelector('.legend-swatch');
+              legItems.push({ type: 'item', color: swEl ? swEl.style.background : '#888', text: child.textContent.trim() });
+            }
+          }
+          if (legItems.length) {
+            const legH = 26;
+            const legY = brandH;
+            page.drawRectangle({ x: 0, y: legY, width: W, height: legH, color: rgb(0.047, 0.059, 0.102), opacity: 0.88 });
+            let lx = 10;
+            const ly = legY + (legH - 9) / 2;
+            for (const item of legItems) {
+              if (lx > W - 80) break;
+              if (item.type === 'section') {
+                const txt = item.text.toUpperCase();
+                page.drawText(txt, { x: lx, y: ly, size: 8, font: brandFont, color: rgb(0.29, 0.31, 0.44) });
+                lx += brandFont.widthOfTextAtSize(txt, 8) + 8;
+              } else {
+                const css = item.color;
+                let swR = 0.5, swG = 0.5, swB = 0.5;
+                const nums = css.match(/(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+                if (nums) { swR = parseInt(nums[1])/255; swG = parseInt(nums[2])/255; swB = parseInt(nums[3])/255; }
+                else if (css.startsWith('#') && css.length >= 7) {
+                  swR = parseInt(css.slice(1,3),16)/255;
+                  swG = parseInt(css.slice(3,5),16)/255;
+                  swB = parseInt(css.slice(5,7),16)/255;
+                }
+                page.drawRectangle({ x: lx, y: ly, width: 11, height: 11, color: rgb(swR, swG, swB) });
+                lx += 15;
+                page.drawText(item.text, { x: lx, y: ly, size: 9, font: brandFont, color: rgb(0.54, 0.58, 0.71) });
+                lx += brandFont.widthOfTextAtSize(item.text, 9) + 12;
+              }
+            }
+          }
+        }
 
         // OGC LGIDict — PDF origin is bottom-left; (0,H) = top of page = north
         const pdfCtx = pdfDoc.context;
