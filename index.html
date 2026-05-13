@@ -539,9 +539,83 @@
     .sel-bar-btn.clear { border-color: #252838; background: transparent; color: #4a5070; }
     .sel-bar-btn.clear:hover { background: #1a1a28; color: #8a93b4; }
 
+    /* ── Hamburger toggle (mobile only) ────────────────────── */
+    #sidebar-toggle {
+      display: none;
+      position: fixed;
+      top: 10px; left: 10px;
+      z-index: 1200;
+      width: 40px; height: 40px;
+      background: #1a1d2e;
+      border: 1px solid #2a2e44;
+      border-radius: 6px;
+      color: #dde1f0;
+      font-size: 20px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+      padding: 0;
+      line-height: 1;
+    }
+
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      background: rgba(0,0,0,0);
+      pointer-events: none;
+      transition: background 0.25s;
+    }
+    #sidebar-overlay.visible {
+      background: rgba(0,0,0,0.5);
+      pointer-events: auto;
+    }
+
+    /* ── Mobile layout ──────────────────────────────────────── */
+    @media (max-width: 640px) {
+      #sidebar-toggle { display: flex; }
+      #sidebar-overlay { display: block; }
+
+      #sidebar {
+        position: fixed;
+        left: -270px;
+        top: 0; bottom: 0;
+        z-index: 1150;
+        transition: left 0.25s cubic-bezier(.4,0,.2,1);
+        box-shadow: none;
+        border-right: none;
+      }
+      #sidebar.open {
+        left: 0;
+        box-shadow: 6px 0 28px rgba(0,0,0,0.65);
+      }
+
+      #map { width: 100vw; }
+
+      #map-legend { left: 0; }
+
+      #habitat-panel { width: 100vw; }
+
+      /* center sel-bar in full viewport (no sidebar offset) */
+      #sel-bar { transform: translateX(-50%); }
+
+      /* bigger touch targets */
+      .check-item, .radio-item { min-height: 44px; }
+      .browse-arrow { width: 36px; height: 36px; font-size: 20px; }
+      .browse-cat-btn { padding: 6px 12px; font-size: 12px; }
+      .sel-bar-btn { padding: 7px 16px; font-size: 12px; }
+
+      /* push zoom controls down so they don't sit behind hamburger */
+      .leaflet-top.leaflet-left { margin-top: 60px; }
+    }
   </style>
 </head>
 <body>
+
+<div id="sidebar-overlay"></div>
+<button id="sidebar-toggle" aria-label="Toggle menu">&#9776;</button>
 
 <div id="sidebar">
   <div class="sidebar-header">
@@ -613,6 +687,7 @@
         <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
         <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
         <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
+        <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
         <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
       </span>
     </label>
@@ -713,6 +788,7 @@
         <button class="browse-cat-btn" data-cat="cemetery">Cemeteries</button>
         <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
         <button class="browse-cat-btn" data-cat="state">State of MI</button>
+        <button class="browse-cat-btn" data-cat="energy">Energy Utilities</button>
         <button class="browse-cat-btn" data-cat="known">Known Sites</button>
       </div>
       <div class="browse-nav">
@@ -1346,6 +1422,13 @@
       where: "UPPER(OWNER_NAME) LIKE '%CEMETERY%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
+    energy: {
+      label: 'Energy Utility', navLabel: 'Energy Utilities',
+      fill: '#c86820', border: '#8a4010',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%CONSUMERS ENERGY%' OR UPPER(OWNER_NAME) LIKE '%ANR PIPELINE%' OR UPPER(OWNER_NAME) LIKE '%MID MICHIGAN GAS STORAGE%' OR UPPER(OWNER_NAME) LIKE '%GREAT LAKES ENERGY%' OR UPPER(OWNER_NAME) LIKE '%DTE ENERGY%' OR UPPER(OWNER_NAME) LIKE '%DTE GAS%' OR UPPER(OWNER_NAME) LIKE '%WOLVERINE POWER%' OR UPPER(OWNER_NAME) LIKE '%WOLVERINE ELECTRIC%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
     known: {
       label: 'Known Site', navLabel: 'Known Sites',
       fill: '#e8c840', border: '#b89820',
@@ -1653,6 +1736,19 @@
 
   document.getElementById('btn-sel-analyze').addEventListener('click', analyzeSelected);
   document.getElementById('btn-sel-clear').addEventListener('click', clearMultiSelection);
+
+  // ── Mobile sidebar toggle ─────────────────────────────────────
+  const sidebarEl  = document.getElementById('sidebar');
+  const sbToggle   = document.getElementById('sidebar-toggle');
+  const sbOverlay  = document.getElementById('sidebar-overlay');
+
+  function openSidebar()  { sidebarEl.classList.add('open');    sbOverlay.classList.add('visible'); }
+  function closeSidebar() { sidebarEl.classList.remove('open'); sbOverlay.classList.remove('visible'); }
+
+  sbToggle.addEventListener('click', () =>
+    sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar()
+  );
+  sbOverlay.addEventListener('click', closeSidebar);
 
   // ── Habitat analysis ─────────────────────────────────────────────
   let habGeneration = 0;
