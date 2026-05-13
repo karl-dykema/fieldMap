@@ -1,4 +1,4 @@
-# Newaygo Field Map
+# Newaygo Field Map · v2.2
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
@@ -20,7 +20,7 @@ An interactive web map for exploring land parcels, ecological layers, conservati
 - 3,000-feature tile cache; re-requests only uncached cells
 
 ### Public Lands
-One-toggle overlay showing seven ownership categories in distinct colors:
+One-toggle overlay showing ten ownership categories in distinct colors:
 
 | Category | Color | Source |
 |---|---|---|
@@ -28,12 +28,14 @@ One-toggle overlay showing seven ownership categories in distinct colors:
 | USFS (Manistee NF) | Dark green | County parcel records |
 | MI DNR | Teal | [DNR LOTS Parcels](https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0) |
 | County / City | Brown | County parcel records |
-| Township | Blue-teal | County parcel records |
+| Township / Recreation Authority | Blue-teal | County parcel records |
 | Cemetery | Mauve | County parcel records |
 | Conservancy / Preserve | Green | County parcel records |
+| State of Michigan | Blue | County parcel records |
+| Energy Utilities | Burnt orange | County parcel records (Consumers Energy, ANR Pipeline, Great Lakes Energy, DTE, Wolverine Power, Mid Michigan Gas Storage) |
 
-### Browse Panel
-Flip through public land parcels one by one — choose a category, then page forward/back with prev/next arrows. Clicking a result flies to it and opens its popup.
+### Cycle Through Panel
+Collapsible panel for stepping through public land parcels one by one. Choose a category, then page forward/back with prev/next arrows. Parcels are sorted in nearest-neighbor geographic order starting from the current map center — cycling moves across the county contiguously rather than jumping around.
 
 ### Ecological & Land Cover Layers
 - **Pre-settlement Vegetation** — Michigan circa 1800 cover types (MNFI)
@@ -50,6 +52,8 @@ Flip through public land parcels one by one — choose a category, then page for
 
 ### Infrastructure
 - **Roads** — county road centerlines, server-rendered
+- **Electric Transmission** — HIFLD national dataset, lines colored by voltage class (138–345 kV; Wolverine Power Supply Coop in Newaygo County)
+- **Electric Service Areas** — Michigan utility territory boundaries (Consumers Energy, Great Lakes Energy Co-op)
 
 ### Species — iNaturalist (SWAP)
 Research-grade observations from iNaturalist, grouped by taxon. Each species is a separate toggleable tile layer. Collapsible panel. All listed species are Michigan Species of Greatest Conservation Need (SWAP) unless noted.
@@ -75,10 +79,20 @@ Tile source: `https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png?taxon_id={id
 ### Dynamic Legend
 Bottom bar shows active layer legend entries — only cover types and reforestation decades currently visible in the viewport. Updates on pan/zoom and layer toggle.
 
+### Property Analyzer
+Click any parcel (or use multi-select) and choose **Analyze Habitat** to open a side panel with:
+- **Road frontage** — length in feet grouped by surface type (Paved / Gravel / Chip Seal / Graded / Unimproved), calculated by sampling county road centerlines against a 20 m parcel buffer
+- **Pre-settlement vegetation** — cover type breakdown clipped to parcel
+- **Soils** — USDA map unit breakdown clipped to parcel
+- **Wetlands** — Michigan EGLE regulated wetland types clipped to parcel
+
+**Multi-parcel selection** — toggle "Select parcels" mode, click to accumulate parcels, then analyze combined habitat across the merged geometry.
+
 ### Navigation
 - URL hash position sync (`#lat,lng,zoomz`) — share or bookmark any view
 - GPS locate button (top-right) with live tracking and accuracy circle
 - Zoom hint shown when parcels are hidden below zoom 13
+- Mobile-friendly: collapsible sidebar with hamburger toggle, full-screen map on small screens
 
 ### Export
 - **GeoPDF** — Avenza Maps-compatible; OGC `LGIDict` georeferencing embedded (EPSG:4326 map bounds); includes open popup and legend bar
@@ -136,6 +150,8 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 | USFS Reforestation (FACTS) | USDA Forest Service EDW | `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8` |
 | Fire Fuel Model (FBFM40) | LANDFIRE 2022 (USFS / DOI) | `https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer` |
 | Species observations | iNaturalist (research grade) | `https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png` |
+| Electric transmission lines | HIFLD (DHS/Esri) | `https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0` |
+| Electric service areas | Michigan MNFI/MNRI | `https://services1.arcgis.com/4ezfu5dIwH83BUNL/arcgis/rest/services/Electric_Utility_Service_Areas_Michigan/FeatureServer/0` |
 | Base tiles | © OpenStreetMap contributors; Esri, Maxar, Earthstar Geographics | — |
 
 ---

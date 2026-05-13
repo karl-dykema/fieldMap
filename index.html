@@ -620,7 +620,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.2</div>
   </div>
 
   <div class="section">
@@ -1519,20 +1519,36 @@
 
   // ── Browse ─────────────────────────────────────────────────────
   let browseCat = null;
-  let browseList = [];
+  let browseList = [];  // individual features, NN-sorted
   let browseIdx  = 0;
   let browseHL   = null;
 
-  function featureBounds(f) {
+  function featureCentroid(f) {
     try {
-      const coords = f.geometry.type === 'Polygon'
-        ? f.geometry.coordinates[0]
-        : f.geometry.coordinates.flat(2);
-      const lats = coords.map(([, y]) => y);
-      const lngs = coords.map(([x]) => x);
-      return L.latLngBounds([Math.min(...lats), Math.min(...lngs)],
-                            [Math.max(...lats), Math.max(...lngs)]);
+      const c = turf.centroid(f);
+      return [c.geometry.coordinates[1], c.geometry.coordinates[0]];
     } catch(e) { return null; }
+  }
+
+  // Greedy nearest-neighbor sort of features starting from current map center
+  function nnSortFeatures(features) {
+    if (features.length <= 1) return features;
+    const ctr = map.getCenter();
+    let cur = [ctr.lat, ctr.lng];
+    const centroids = features.map(f => featureCentroid(f) || cur);
+    const rem = features.map((f, i) => ({ f, c: centroids[i] }));
+    const sorted = [];
+    while (rem.length) {
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < rem.length; i++) {
+        const d = (rem[i].c[0] - cur[0]) ** 2 + (rem[i].c[1] - cur[1]) ** 2;
+        if (d < bd) { bd = d; bi = i; }
+      }
+      const next = rem.splice(bi, 1)[0];
+      sorted.push(next.f);
+      cur = next.c;
+    }
+    return sorted;
   }
 
   function browseGo(idx) {
@@ -1551,8 +1567,8 @@
     document.getElementById('browse-prev').disabled = idx <= 0;
     document.getElementById('browse-next').disabled = idx >= browseList.length - 1;
 
-    const b = featureBounds(f);
-    if (b) map.flyToBounds(b, { padding: [40, 40], maxZoom: 16 });
+    const b = L.geoJSON(f).getBounds();
+    if (b && b.isValid()) map.flyToBounds(b, { padding: [40, 40], maxZoom: 16 });
 
     if (browseHL) map.removeLayer(browseHL);
     browseHL = L.geoJSON(f, {
@@ -1572,12 +1588,12 @@
     if (browseHL) { map.removeLayer(browseHL); browseHL = null; }
 
     fetchPLCat(cat, features => {
-      browseList = features;
-      if (!browseList.length) {
+      if (!features.length) {
         document.getElementById('browse-counter').textContent = '0 / 0';
         document.getElementById('browse-info').innerHTML = '<span class="browse-status">No features found</span>';
         return;
       }
+      browseList = nnSortFeatures(features);
       browseGo(0);
     });
   }
@@ -2215,7 +2231,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.1'),
+          Version:      PDFString.of('2.2'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
