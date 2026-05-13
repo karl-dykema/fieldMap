@@ -210,6 +210,9 @@
       100% { box-shadow: 0 0 0 0   rgba(74,157,224,0); }
     }
 
+    .leaflet-bottom {
+      bottom: 34px !important;  /* clear the legend bar */
+    }
     .leaflet-control-attribution {
       background: rgba(18, 20, 28, 0.75) !important;
       color: #4a5070 !important;
@@ -404,6 +407,138 @@
       border: 1px solid rgba(255,255,255,0.12);
     }
 
+    /* ── Habitat analysis panel ─────────────────────────────── */
+    #habitat-panel {
+      position: fixed;
+      right: 0; top: 0; bottom: 0;
+      width: 320px;
+      background: #1a1d2e;
+      color: #dde1f0;
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #2a2e44;
+      transform: translateX(100%);
+      transition: transform 0.22s cubic-bezier(.4,0,.2,1);
+      box-shadow: -6px 0 24px rgba(0,0,0,0.45);
+    }
+    #habitat-panel.open { transform: translateX(0); }
+
+    .hab-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 15px 14px 13px;
+      border-bottom: 1px solid #2a2e44;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .hab-header-text { flex: 1; min-width: 0; }
+    .hab-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hab-subtitle { font-size: 11px; color: #4a5070; margin-top: 3px; }
+    .hab-close {
+      background: none; border: none;
+      color: #4a5070; font-size: 16px;
+      cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0;
+    }
+    .hab-close:hover { color: #dde1f0; }
+
+    .hab-body { flex: 1; overflow-y: auto; }
+    .hab-section { padding: 12px 14px 14px; border-bottom: 1px solid #1e2138; }
+    .hab-section-head {
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      color: #4a5070; margin-bottom: 10px;
+    }
+    .hab-loading, .hab-empty { font-size: 12px; color: #4a5070; font-style: italic; }
+    .hab-error { font-size: 12px; color: #cc6655; }
+
+    .hab-row { margin-bottom: 8px; }
+    .hab-row-head {
+      display: flex; justify-content: space-between;
+      align-items: baseline; gap: 6px;
+      font-size: 11px; margin-bottom: 3px;
+    }
+    .hab-label {
+      color: #b0b8d0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    }
+    .hab-stats { flex-shrink: 0; color: #4a5878; font-variant-numeric: tabular-nums; font-size: 10px; }
+    .hab-bar-wrap { height: 4px; background: #1e2138; border-radius: 2px; overflow: hidden; }
+    .hab-bar { height: 100%; border-radius: 2px; }
+    .hab-total { font-size: 10px; color: #333a50; margin-top: 8px; font-style: italic; }
+
+    .btn-analyze-habitat {
+      display: block; width: 100%;
+      margin-top: 10px; padding: 6px 0;
+      border-radius: 4px; border: 1px solid #2a4060;
+      background: #0d1825; color: #5a9ecf;
+      font-size: 11px; font-family: inherit;
+      cursor: pointer; letter-spacing: 0.03em;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .btn-analyze-habitat:hover { background: #122030; color: #8ac8f0; border-color: #3a6080; }
+
+    /* ── Multi-parcel selection ──────────────────────────────── */
+    .sel-mode-row {
+      padding: 0 10px 6px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .sel-mode-btn {
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid #2a3a50;
+      background: transparent;
+      color: #5a8aaa;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .sel-mode-btn:hover { background: #1a2838; color: #8ac0d8; }
+    .sel-mode-btn.active { background: #1a3040; border-color: #5a9acf; color: #8ac8f0; }
+
+    #sel-bar {
+      position: fixed;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(calc(-50% + 130px)); /* center in map area (sidebar=260px) */
+      z-index: 950;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(10, 16, 30, 0.97);
+      border: 1px solid #2a5070;
+      border-radius: 20px;
+      padding: 8px 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+      white-space: nowrap;
+    }
+    #sel-bar.visible { display: flex; }
+    .sel-bar-count { font-size: 12px; color: #6ab8d8; }
+    .sel-bar-btn {
+      padding: 4px 13px;
+      border-radius: 10px;
+      border: 1px solid #3a6080;
+      background: #0d2030;
+      color: #5ab0d8;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .sel-bar-btn:hover { background: #152840; color: #8ad8f8; }
+    .sel-bar-btn.clear { border-color: #252838; background: transparent; color: #4a5070; }
+    .sel-bar-btn.clear:hover { background: #1a1a28; color: #8a93b4; }
+
   </style>
 </head>
 <body>
@@ -432,6 +567,9 @@
     <label class="check-item">
       <input type="checkbox" id="chk-parcels"> Parcels
     </label>
+    <div class="sel-mode-row">
+      <button class="sel-mode-btn" id="btn-select-mode">Select parcels</button>
+    </div>
     <label class="check-item">
       <input type="checkbox" id="chk-veg"> Pre-settlement Vegetation
     </label>
@@ -444,14 +582,20 @@
     <label class="check-item">
       <input type="checkbox" id="chk-soils"> Soils
     </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-refor"> USFS Reforestation
-    </label>
+
     <label class="check-item">
       <input type="checkbox" id="chk-fbfm"> Fire Fuel Model
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-roads"> Roads
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-elec-transm">
+      Electric Transmission
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-elec-areas">
+      Electric Service Areas
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-wetlands"> Wetlands (Part 303)
@@ -468,6 +612,7 @@
         <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
         <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
         <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
+        <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
         <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
       </span>
     </label>
@@ -475,9 +620,9 @@
 
   <div class="section">
     <div class="section-label species-toggle" id="species-toggle">
-      Species — iNaturalist (SWAP) <span class="species-arrow">▾</span>
+      Species — iNaturalist (SWAP) <span class="species-arrow closed">▾</span>
     </div>
-    <div id="species-body">
+    <div id="species-body" style="display:none">
 
       <div class="species-group">Insects</div>
       <label class="check-item">
@@ -555,23 +700,28 @@
   </div>
 
   <div class="section">
-    <div class="section-label">Browse</div>
-    <div class="browse-cats">
-      <button class="browse-cat-btn" data-cat="school">School Forests</button>
-      <button class="browse-cat-btn" data-cat="usfs">USFS</button>
-      <button class="browse-cat-btn" data-cat="dnr">MI DNR</button>
-      <button class="browse-cat-btn" data-cat="govt">County / City</button>
-      <button class="browse-cat-btn" data-cat="township">Townships</button>
-      <button class="browse-cat-btn" data-cat="cemetery">Cemeteries</button>
-      <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
-      <button class="browse-cat-btn" data-cat="known">Known Sites</button>
+    <div class="section-label species-toggle" id="browse-toggle">
+      Cycle Through <span class="species-arrow closed">▾</span>
     </div>
-    <div class="browse-nav">
-      <button class="browse-arrow" id="browse-prev" disabled>&#8249;</button>
-      <span class="browse-counter" id="browse-counter">—</span>
-      <button class="browse-arrow" id="browse-next" disabled>&#8250;</button>
+    <div id="browse-body" style="display:none">
+      <div class="browse-cats">
+        <button class="browse-cat-btn" data-cat="school">School Forests</button>
+        <button class="browse-cat-btn" data-cat="usfs">USFS</button>
+        <button class="browse-cat-btn" data-cat="dnr">MI DNR</button>
+        <button class="browse-cat-btn" data-cat="govt">County / City</button>
+        <button class="browse-cat-btn" data-cat="township">Townships</button>
+        <button class="browse-cat-btn" data-cat="cemetery">Cemeteries</button>
+        <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
+        <button class="browse-cat-btn" data-cat="state">State of MI</button>
+        <button class="browse-cat-btn" data-cat="known">Known Sites</button>
+      </div>
+      <div class="browse-nav">
+        <button class="browse-arrow" id="browse-prev" disabled>&#8249;</button>
+        <span class="browse-counter" id="browse-counter">—</span>
+        <button class="browse-arrow" id="browse-next" disabled>&#8250;</button>
+      </div>
+      <div id="browse-info"></div>
     </div>
-    <div id="browse-info"></div>
   </div>
 
   <div class="section">
@@ -583,6 +733,23 @@
 
 <div id="map"></div>
 <div id="map-legend"></div>
+
+<div id="sel-bar">
+  <span class="sel-bar-count" id="sel-count"></span>
+  <button class="sel-bar-btn" id="btn-sel-analyze">Analyze</button>
+  <button class="sel-bar-btn clear" id="btn-sel-clear">Clear</button>
+</div>
+
+<div id="habitat-panel">
+  <div class="hab-header">
+    <div class="hab-header-text">
+      <div class="hab-title" id="hab-panel-title"></div>
+      <div class="hab-subtitle" id="hab-panel-subtitle"></div>
+    </div>
+    <button class="hab-close" id="hab-close-btn" title="Close">&#x2715;</button>
+  </div>
+  <div class="hab-body" id="hab-body"></div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
@@ -711,8 +878,11 @@
   let parcelGroups     = [];
   let featureLayerMap  = new Map(); // PIN → leaflet layer
   let multiGroupPins   = new Set(); // PINs belonging to multi-parcel owners
+  let selectMode       = false;
+  const selectedParcels = new Map(); // PIN → feature (multi-select across owners)
 
-  const STYLE_SELECTED = { color: '#5b8dee', weight: 1.5, opacity: 1, fillColor: '#5b8dee', fillOpacity: 0.2 };
+  const STYLE_SELECTED     = { color: '#5b8dee', weight: 1.5, opacity: 1, fillColor: '#5b8dee', fillOpacity: 0.2 };
+  const STYLE_SEL_MULTI    = { color: '#e8a030', weight: 2,   opacity: 1, fillColor: '#e8a030', fillOpacity: 0.22 };
 
   function defaultStyle(pin) {
     return multiGroupPins.has(pin)
@@ -729,7 +899,9 @@
   }
 
   function clearSelection() {
-    featureLayerMap.forEach((l, pin) => l.setStyle(defaultStyle(pin)));
+    featureLayerMap.forEach((l, pin) => {
+      if (!selectedParcels.has(pin)) l.setStyle(defaultStyle(pin));
+    });
   }
 
   map.on('popupclose', clearSelection);
@@ -772,6 +944,10 @@
         if (pid) featureLayerMap.set(pid, layer);
         layer.on('click', e => {
           e.originalEvent.stopPropagation();
+          if (selectMode) {
+            toggleParcelSelection(feature, layer);
+            return;
+          }
           const group = parcelGroups.find(g => g.features.includes(feature)) || { features: [feature] };
           selectGroup(group);
           showParcelPopup(feature, e.latlng);
@@ -797,6 +973,14 @@
     if (newGroupLayer) newGroupLayer.addTo(map);
     parcelBoundary   = newBoundary;
     parcelGroupLayer = newGroupLayer;
+
+    // Restore multi-selection amber highlights after layer swap
+    if (selectMode && selectedParcels.size) {
+      selectedParcels.forEach((_, pin) => {
+        const l = featureLayerMap.get(pin);
+        if (l) l.setStyle(STYLE_SEL_MULTI);
+      });
+    }
   }
 
   function scheduleParcelLoad() {
@@ -832,15 +1016,31 @@
       });
   }
 
+  // Pending geometry/label for the habitat analyze button
+  let pendingAnalysisGeom  = null;
+  let pendingAnalysisLabel = '';
+  let pendingAnalysisAcres = 0;
+
   function showParcelPopup(feature, latlng) {
     const p = feature.properties;
     const group = parcelGroups.find(g => g.features.includes(feature));
     let html = '';
 
+    // Capture geometry for habitat analysis — union the group if multi-parcel
+    pendingAnalysisGeom  = feature.geometry;
+    pendingAnalysisLabel = p.OWNER_NAME || '—';
+    pendingAnalysisAcres = parseFloat(p.CALC_ACRE) || 0;
+
     if (group && group.features.length > 1) {
       const totalAcres    = group.features.reduce((s, f) => s + (parseFloat(f.properties.CALC_ACRE) || 0), 0);
       const totalSEV      = group.features.reduce((s, f) => s + (parseInt(f.properties.ASSESSED)   || 0), 0);
       const totalTaxable  = group.features.reduce((s, f) => s + (parseInt(f.properties.TAXABLE)    || 0), 0);
+      pendingAnalysisLabel = group.canonicalName;
+      pendingAnalysisAcres = totalAcres;
+      try {
+        const merged = group.features.reduce((a, f) => turf.union(a, f));
+        pendingAnalysisGeom = merged.geometry;
+      } catch(e) { /* fall back to single parcel geometry */ }
       html += `<div class="popup-title">${group.canonicalName}</div>`;
       html += `<div class="popup-row">Total acreage: <span>${totalAcres.toFixed(2)} ac</span></div>`;
       html += `<div class="popup-row">Parcels in view: <span>${group.features.length}</span></div>`;
@@ -860,62 +1060,11 @@
     if (p.TAXABLE)    html += `<div class="popup-row">Taxable: <span>$${parseInt(p.TAXABLE).toLocaleString()}</span></div>`;
     if (p.PIN)        html += `<div class="popup-row">PIN: <span>${p.PIN}</span></div>`;
 
+    html += `<button class="btn-analyze-habitat" id="btn-analyze-habitat">Analyze Habitat</button>`;
+
     L.popup({ maxWidth: 280 }).setLatLng(latlng).setContent(html).openOn(map);
   }
 
-  // ── USFS Reforestation (FACTS) ────────────────────────────────────
-  const REFOR_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8';
-
-  function reforColor(fy) {
-    const y = parseInt(fy) || 0;
-    if (y < 1945) return '#7a5c3a';
-    if (y < 1970) return '#8a7a3a';
-    if (y < 1990) return '#5a8a5a';
-    if (y < 2010) return '#3a8a6a';
-    return '#2aaa7a';
-  }
-
-  let reforLayer = null;
-
-  document.getElementById('chk-refor').addEventListener('change', e => {
-    if (e.target.checked) {
-      if (!reforLayer) {
-        reforLayer = L.esri.featureLayer({
-          url: REFOR_URL,
-          simplifyFactor: 0.35,
-          precision: 5,
-          style: feature => {
-            const color = reforColor(feature.properties.FY_COMPLETED);
-            return { color: '#22222255', weight: 0.5, fillColor: color, fillOpacity: 0.55 };
-          },
-          onEachFeature(feature, layer) {
-            layer.on('click', e => {
-              e.originalEvent.stopPropagation();
-              const p = feature.properties;
-              const year  = p.FY_COMPLETED || (p.DATE_COMPLETED ? new Date(p.DATE_COMPLETED).getFullYear() : null);
-              const acres = parseFloat(p.GIS_ACRES);
-              const color = reforColor(p.FY_COMPLETED);
-              let html = `<div class="popup-title" style="display:flex;align-items:center;gap:6px">
-                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>
-                ${p.ACTIVITY_NAME || 'Reforestation'}
-              </div>`;
-              if (p.CAUSAL_AGENT)        html += `<div class="popup-row">Cause: <span>${p.CAUSAL_AGENT}</span></div>`;
-              if (year)                  html += `<div class="popup-row">Completed: <span>${year}</span></div>`;
-              if (p.TREATMENT_TYPE)      html += `<div class="popup-row">Treatment: <span>${p.TREATMENT_TYPE}</span></div>`;
-              if (p.SALE_NAME)           html += `<div class="popup-row">Sale: <span>${p.SALE_NAME}</span></div>`;
-              if (acres)                 html += `<div class="popup-row">Acres: <span>${acres.toFixed(1)}</span></div>`;
-              if (p.ADMIN_DISTRICT_NAME) html += `<div class="popup-row">District: <span>${p.ADMIN_DISTRICT_NAME}</span></div>`;
-              L.popup({ maxWidth: 280 }).setLatLng(e.latlng).setContent(html).openOn(map);
-            });
-          }
-        });
-        reforLayer.on('load', updateLegend);
-      }
-      reforLayer.addTo(map);
-    } else {
-      if (reforLayer) map.removeLayer(reforLayer);
-    }
-  });
 
   // ── LANDFIRE Fire Fuel Model (FBFM40) ─────────────────────────────
   const fbfmLayer = L.esri.imageMapLayer({
@@ -941,6 +1090,60 @@
 
   document.getElementById('chk-contours').addEventListener('change', e => {
     e.target.checked ? contoursLayer.addTo(map) : map.removeLayer(contoursLayer);
+  });
+
+  // ── Electric utility layers ───────────────────────────────────────
+  const VOLT_COLORS = {
+    'UNDER 100':     '#4a90d9',
+    '100-161':       '#5aaa6a',
+    '220-287':       '#e8c840',
+    '345':           '#e8a030',
+    '500':           '#dd5533',
+    '735 AND ABOVE': '#cc2222',
+    'DC':            '#9977cc',
+    'NOT AVAILABLE': '#667788'
+  };
+
+  const elecTransmLayer = L.esri.featureLayer({
+    url: 'https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0',
+    style: f => {
+      const vc = (f.properties.VOLT_CLASS || 'NOT AVAILABLE').trim();
+      return { color: VOLT_COLORS[vc] || '#667788', weight: 2.5, opacity: 0.85 };
+    },
+    onEachFeature: (f, layer) => {
+      const p = f.properties;
+      const kv = p.VOLTAGE ? `${p.VOLTAGE} kV` : p.VOLT_CLASS || '';
+      layer.bindTooltip(`<b>${p.OWNER || 'Unknown'}</b><br>${kv}`, { sticky: true });
+    },
+    attribution: 'HIFLD — Electric Power Transmission Lines'
+  });
+
+  document.getElementById('chk-elec-transm').addEventListener('change', e => {
+    e.target.checked ? elecTransmLayer.addTo(map) : map.removeLayer(elecTransmLayer);
+  });
+
+  const ELEC_TYPE_COLORS = {
+    'Cooperative':   '#3a8a4a',
+    'Investor Owned':'#4a6aaa',
+    'Municipal':     '#8b6f3e',
+    'Federal':       '#2d6a4f'
+  };
+
+  const elecAreasLayer = L.esri.featureLayer({
+    url: 'https://services1.arcgis.com/4ezfu5dIwH83BUNL/arcgis/rest/services/Electric_Utility_Service_Areas_Michigan/FeatureServer/0',
+    style: f => {
+      const c = ELEC_TYPE_COLORS[f.properties.Type] || '#667788';
+      return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.06, opacity: 0.7 };
+    },
+    onEachFeature: (f, layer) => {
+      const p = f.properties;
+      layer.bindTooltip(`<b>${p.Name || '—'}</b><br>${p.Type || ''}<br>${p.Phone || ''}`, { sticky: true });
+    },
+    attribution: 'Michigan Electric Utility Service Areas'
+  });
+
+  document.getElementById('chk-elec-areas').addEventListener('change', e => {
+    e.target.checked ? elecAreasLayer.addTo(map) : map.removeLayer(elecAreasLayer);
   });
 
   document.getElementById('chk-soils').addEventListener('change', e => {
@@ -1100,6 +1303,13 @@
       where: "UPPER(OWNER_NAME) LIKE '%COUNTY OF NEWAYGO%' OR UPPER(OWNER_NAME) LIKE '%NEWAYGO COUNTY%' OR UPPER(OWNER_NAME) LIKE '%CITY OF %' OR UPPER(OWNER_NAME) LIKE '%VILLAGE OF %'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
+    state: {
+      label: 'State of Michigan', navLabel: 'State of Michigan',
+      fill: '#4a6aaa', border: '#2a4a80',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%STATE OF MICHIGAN%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
     usfs: {
       label: 'USFS', navLabel: 'USFS',
       fill: '#2d6a4f', border: '#1a4a33',
@@ -1126,7 +1336,7 @@
       label: 'Township', navLabel: 'Township Land',
       fill: '#3a7a8a', border: '#2a5a6a',
       url: PARCELS_URL,
-      where: "(UPPER(OWNER_NAME) LIKE '%TOWNSHIP%' OR UPPER(OWNER_NAME) LIKE '%TWP OF%' OR UPPER(OWNER_NAME) LIKE 'TWP %') AND UPPER(OWNER_NAME) NOT LIKE '%CEMETERY%' AND UPPER(OWNER_NAME) NOT LIKE '%LLC%'",
+      where: "(UPPER(OWNER_NAME) LIKE '%TOWNSHIP%' OR UPPER(OWNER_NAME) LIKE '%TWP OF%' OR UPPER(OWNER_NAME) LIKE 'TWP %' OR UPPER(OWNER_NAME) LIKE '%RECREATION AUTHORITY%' OR UPPER(OWNER_NAME) LIKE '%REC AUTHORITY%') AND UPPER(OWNER_NAME) NOT LIKE '%CEMETERY%' AND UPPER(OWNER_NAME) NOT LIKE '%LLC%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     cemetery: {
@@ -1304,6 +1514,14 @@
     if (browseIdx < browseList.length - 1) browseGo(browseIdx + 1);
   });
 
+  document.getElementById('browse-toggle').addEventListener('click', () => {
+    const body  = document.getElementById('browse-body');
+    const arrow = document.querySelector('#browse-toggle .species-arrow');
+    const open  = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
   document.getElementById('chk-parcels').addEventListener('change', e => {
     parcelsEnabled = e.target.checked;
     if (parcelsEnabled) {
@@ -1313,6 +1531,11 @@
       if (parcelBoundary)   { map.removeLayer(parcelBoundary);   parcelBoundary = null; }
       if (parcelGroupLayer) { map.removeLayer(parcelGroupLayer); parcelGroupLayer = null; }
       showZoomHint(false);
+      clearMultiSelection();
+      selectMode = false;
+      const selBtn = document.getElementById('btn-select-mode');
+      selBtn.classList.remove('active');
+      selBtn.textContent = 'Select parcels';
       // featureCache kept intact so re-enabling is instant
     }
   });
@@ -1373,16 +1596,303 @@
 
   map.on('locationerror', e => console.warn('GPS:', e.message));
 
-  // ── (Forest Analysis removed) ──────────────────────────────────
+  // ── Multi-parcel selection ────────────────────────────────────────
+  function toggleParcelSelection(feature, layer) {
+    const pin = feature.properties.PACKEDPIN || feature.properties.PIN;
+    if (!pin) return;
+    if (selectedParcels.has(pin)) {
+      selectedParcels.delete(pin);
+      layer.setStyle(defaultStyle(pin));
+    } else {
+      selectedParcels.set(pin, feature);
+      layer.setStyle(STYLE_SEL_MULTI);
+    }
+    updateSelBar();
+  }
+
+  function clearMultiSelection() {
+    selectedParcels.forEach((_, pin) => {
+      const l = featureLayerMap.get(pin);
+      if (l) l.setStyle(defaultStyle(pin));
+    });
+    selectedParcels.clear();
+    updateSelBar();
+  }
+
+  function updateSelBar() {
+    const bar = document.getElementById('sel-bar');
+    const n = selectedParcels.size;
+    if (n === 0) { bar.classList.remove('visible'); return; }
+    bar.classList.add('visible');
+    document.getElementById('sel-count').textContent =
+      `${n} parcel${n !== 1 ? 's' : ''} selected`;
+  }
+
+  function analyzeSelected() {
+    if (!selectedParcels.size) return;
+    const features = Array.from(selectedParcels.values());
+    let geom = features[0].geometry;
+    if (features.length > 1) {
+      try { geom = features.reduce((a, f) => turf.union(a, f)).geometry; }
+      catch(e) { /* fall back to first parcel */ }
+    }
+    const totalAcres = features.reduce((s, f) => s + (parseFloat(f.properties.CALC_ACRE) || 0), 0);
+    const label = features.length === 1
+      ? (features[0].properties.OWNER_NAME || '—')
+      : `${features.length} selected parcels`;
+    openHabitatPanel(geom, label, totalAcres);
+  }
+
+  document.getElementById('btn-select-mode').addEventListener('click', () => {
+    selectMode = !selectMode;
+    const btn = document.getElementById('btn-select-mode');
+    btn.classList.toggle('active', selectMode);
+    btn.textContent = selectMode ? 'Exit select' : 'Select parcels';
+    if (!selectMode) clearMultiSelection();
+  });
+
+  document.getElementById('btn-sel-analyze').addEventListener('click', analyzeSelected);
+  document.getElementById('btn-sel-clear').addEventListener('click', clearMultiSelection);
+
+  // ── Habitat analysis ─────────────────────────────────────────────
+  let habGeneration = 0;
+
+  const HAB_SECTION_TITLES = {
+    'hab-frontage-section': 'Road Frontage',
+    'hab-veg-section':      'Pre-settlement Vegetation',
+    'hab-soils-section':    'Soils',
+    'hab-wetlands-section': 'Wetlands'
+  };
+
+  const SURFACE_LABELS = {
+    PAV: 'Paved', GRA: 'Gravel', SEA: 'Chip Seal',
+    GAD: 'Graded', UNM: 'Unimproved', UNK: 'Unknown'
+  };
+
+  // Michigan NWI 2005 wetlands — Michigan EGLE WrdOpenData FeatureServer (verified, public)
+  // Fields: WetlandType (e.g. "Freshwater Pond"), NWICode (e.g. "PAB4F")
+  const WETLANDS_QUERY_URL = 'https://gisagoegle.state.mi.us/arcgis/rest/services/EGLE/WrdOpenData/FeatureServer/9';
+
+  document.getElementById('hab-close-btn').addEventListener('click', () => {
+    document.getElementById('habitat-panel').classList.remove('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (e.target && e.target.id === 'btn-analyze-habitat') {
+      openHabitatPanel(pendingAnalysisGeom, pendingAnalysisLabel, pendingAnalysisAcres);
+    }
+  });
+
+  function openHabitatPanel(geom, label, acres) {
+    if (!geom) return;
+    const gen = ++habGeneration;
+
+    document.getElementById('hab-panel-title').textContent   = label;
+    document.getElementById('hab-panel-subtitle').textContent = `${acres.toFixed(1)} ac`;
+
+    document.getElementById('hab-body').innerHTML = `
+      <div class="hab-section" id="hab-frontage-section">
+        <div class="hab-section-head">Road Frontage</div>
+        <div class="hab-loading">Querying…</div>
+      </div>
+      <div class="hab-section" id="hab-veg-section">
+        <div class="hab-section-head">Pre-settlement Vegetation</div>
+        <div class="hab-loading">Querying…</div>
+      </div>
+      <div class="hab-section" id="hab-soils-section">
+        <div class="hab-section-head">Soils</div>
+        <div class="hab-loading">Querying…</div>
+      </div>
+      <div class="hab-section" id="hab-wetlands-section">
+        <div class="hab-section-head">Wetlands</div>
+        <div class="hab-loading">Querying…</div>
+      </div>`;
+
+    document.getElementById('habitat-panel').classList.add('open');
+
+    queryRoadFrontage(geom)
+      .then(data => { if (habGeneration === gen) renderFrontageSection(data); })
+      .catch(()  => { if (habGeneration === gen) markSectionError('hab-frontage-section'); });
+
+    queryVeg(geom)
+      .then(data => { if (habGeneration === gen) renderHabSection('hab-veg-section',      data, '#3a7a6a', acres); })
+      .catch(()  => { if (habGeneration === gen) markSectionError('hab-veg-section'); });
+
+    querySoils(geom)
+      .then(data => { if (habGeneration === gen) renderHabSection('hab-soils-section',    data, '#7a6a3a', acres); })
+      .catch(()  => { if (habGeneration === gen) markSectionError('hab-soils-section'); });
+
+    queryWetlands(geom)
+      .then(data => { if (habGeneration === gen) renderHabSection('hab-wetlands-section', data, '#2a6a8a', acres); })
+      .catch(()  => { if (habGeneration === gen) markSectionError('hab-wetlands-section'); });
+  }
+
+  function markSectionError(sectionId) {
+    const el = document.querySelector(`#${sectionId} .hab-loading`);
+    if (el) el.outerHTML = '<div class="hab-error">Query failed</div>';
+  }
+
+  function renderHabSection(sectionId, data, barColor, totalParcelAcres) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    const title = HAB_SECTION_TITLES[sectionId] || '';
+
+    const sorted = Array.from(data.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 25);
+    const mappedAcres = sorted.reduce((s, [, ac]) => s + ac, 0);
+
+    let rows = '';
+    if (sorted.length === 0) {
+      rows = '<div class="hab-empty">No features found in this area</div>';
+    } else {
+      for (const [label, ac] of sorted) {
+        const pct = mappedAcres > 0 ? (ac / mappedAcres * 100) : 0;
+        const escaped = label.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        rows += `<div class="hab-row">
+          <div class="hab-row-head">
+            <span class="hab-label" title="${escaped}">${escaped}</span>
+            <span class="hab-stats">${ac.toFixed(1)} ac · ${pct.toFixed(0)}%</span>
+          </div>
+          <div class="hab-bar-wrap">
+            <div class="hab-bar" style="width:${pct.toFixed(1)}%;background:${barColor}"></div>
+          </div>
+        </div>`;
+      }
+      rows += `<div class="hab-total">${mappedAcres.toFixed(1)} of ${totalParcelAcres.toFixed(1)} ac mapped</div>`;
+    }
+    section.innerHTML = `<div class="hab-section-head">${title}</div>` + rows;
+  }
+
+  // Build ArcGIS REST query params for an intersects-by-bbox request.
+  // inSR=4326 is required — without it, servers in local projections (Michigan GeoRef,
+  // State Plane, etc.) interpret the WGS84 bbox coordinates as native units and return 0 features.
+  function arcgisBboxParams(geom, outFields) {
+    const bbox = turf.bbox({ type: 'Feature', geometry: geom, properties: {} });
+    return new URLSearchParams({
+      where:          '1=1',
+      geometry: JSON.stringify({
+        xmin: bbox[0], ymin: bbox[1], xmax: bbox[2], ymax: bbox[3],
+        spatialReference: { wkid: 4326 }
+      }),
+      geometryType:   'esriGeometryEnvelope',
+      spatialRel:     'esriSpatialRelIntersects',
+      inSR:           '4326',
+      outFields:      outFields,
+      returnGeometry: 'true',
+      outSR:          '4326',
+      f:              'geojson'
+    });
+  }
+
+  // Clip fetched features to the parcel geometry; return Map of label → acres
+  function intersectToAcres(features, geom, nameGetter) {
+    const gf = { type: 'Feature', geometry: geom, properties: {} };
+    const result = new Map();
+    for (const f of features) {
+      if (!f.geometry) continue;
+      try {
+        const clipped = turf.intersect(f, gf);
+        if (!clipped) continue;
+        const ac = turf.area(clipped) * 0.000247105;
+        if (ac < 0.001) continue;
+        const label = nameGetter(f.properties) || 'Unknown';
+        result.set(label, (result.get(label) || 0) + ac);
+      } catch(e) { /* skip invalid geometry */ }
+    }
+    return result;
+  }
+
+  async function queryVeg(geom) {
+    const resp = await fetch(`${VEG_URL}/query?${arcgisBboxParams(geom, 'COVERTYPE')}`);
+    if (!resp.ok) throw new Error(`VEG HTTP ${resp.status}`);
+    const fc = await resp.json();
+    if (!fc.features?.length) return new Map();
+    return intersectToAcres(fc.features, geom, p => p.COVERTYPE);
+  }
+
+  async function querySoils(geom) {
+    const resp = await fetch(`${COUNTY_MS}/32/query?${arcgisBboxParams(geom, '*')}`);
+    if (!resp.ok) throw new Error(`Soils HTTP ${resp.status}`);
+    const fc = await resp.json();
+    if (!fc.features?.length) return new Map();
+    const nameFields = ['MUNAME', 'muname', 'MapUnitName', 'MAPUNIT', 'SOIL_NAME', 'Name', 'NAME', 'MUSYM', 'musym'];
+    return intersectToAcres(fc.features, geom,
+      p => nameFields.map(k => p[k]).find(v => v && typeof v === 'string') || null
+    );
+  }
+
+  async function queryWetlands(geom) {
+    const resp = await fetch(`${WETLANDS_QUERY_URL}/query?${arcgisBboxParams(geom, 'WetlandType,NWICode')}`);
+    if (!resp.ok) throw new Error(`Wetlands HTTP ${resp.status}`);
+    const fc = await resp.json();
+    if (!fc.features?.length) return new Map();
+    return intersectToAcres(fc.features, geom,
+      p => p.WetlandType || p.NWICode || null
+    );
+  }
+
+  // Roads are centerlines ~10m inside road ROW; buffer 20m to capture adjacent centerlines
+  async function queryRoadFrontage(geom) {
+    const parcelFeat = { type: 'Feature', geometry: geom, properties: {} };
+    const buffer = turf.buffer(parcelFeat, 20, { units: 'meters' });
+
+    const resp = await fetch(`${COUNTY_MS}/5/query?${arcgisBboxParams(geom, 'SURFACE,NAME,PREFIX,TYPE')}`);
+    if (!resp.ok) throw new Error(`Roads HTTP ${resp.status}`);
+    const fc = await resp.json();
+    if (!fc.features?.length) return new Map();
+
+    const byType = new Map();
+    for (const f of fc.features) {
+      if (!f.geometry) continue;
+      try {
+        if (!turf.booleanIntersects(f, buffer)) continue;
+        const len = turf.length(f, { units: 'meters' });
+        const step = 5;
+        const steps = Math.max(1, Math.ceil(len / step));
+        let segMeters = 0;
+        let prevIn = false;
+        for (let i = 0; i <= steps; i++) {
+          const d = Math.min(i * step, len);
+          const pt = turf.along(f, d, { units: 'meters' });
+          const inBuf = turf.booleanPointInPolygon(pt, buffer);
+          if (i > 0) {
+            const segLen = Math.min(step, len - (i - 1) * step);
+            if (inBuf || prevIn) segMeters += segLen;
+          }
+          prevIn = inBuf;
+        }
+        if (segMeters > 0) {
+          const surface = f.properties.SURFACE || 'UNK';
+          byType.set(surface, (byType.get(surface) || 0) + segMeters * 3.28084);
+        }
+      } catch(e) {}
+    }
+    return byType;
+  }
+
+  function renderFrontageSection(data) {
+    const section = document.getElementById('hab-frontage-section');
+    if (!section) return;
+    if (!data.size) {
+      section.innerHTML = '<div class="hab-section-head">Road Frontage</div><div class="hab-empty">No road frontage found</div>';
+      return;
+    }
+    const sorted = Array.from(data.entries()).sort((a, b) => b[1] - a[1]);
+    let rows = '';
+    for (const [code, feet] of sorted) {
+      const label = SURFACE_LABELS[code] || code;
+      rows += `<div class="hab-row">
+        <div class="hab-row-head">
+          <span class="hab-row-label">${label}</span>
+          <span class="hab-stats">${Math.round(feet).toLocaleString()} ft</span>
+        </div>
+      </div>`;
+    }
+    section.innerHTML = '<div class="hab-section-head">Road Frontage</div>' + rows;
+  }
 
   // ── Map legend ───────────────────────────────────────────────────
-  const REFOR_DECADES = [
-    { label: 'Pre-1945', color: '#7a5c3a' },
-    { label: '1945–69',  color: '#8a7a3a' },
-    { label: '1970–89',  color: '#5a8a5a' },
-    { label: '1990–09',  color: '#3a8a6a' },
-    { label: '2010+',    color: '#2aaa7a' },
-  ];
 
   function shortVegLabel(t) {
     return t
@@ -1409,25 +1919,6 @@
         parts.push('<span class="legend-section">Veg</span>');
         seen.forEach((color, type) => {
           parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${shortVegLabel(type)}</span>`);
-        });
-      }
-    }
-
-    // USFS Reforestation — show only decades present in current view
-    if (document.getElementById('chk-refor').checked && reforLayer) {
-      const presentDecades = new Set();
-      reforLayer.eachFeature(layer => {
-        const fy = parseInt(layer.feature?.properties?.FY_COMPLETED) || 0;
-        if      (fy < 1945) presentDecades.add('Pre-1945');
-        else if (fy < 1970) presentDecades.add('1945–69');
-        else if (fy < 1990) presentDecades.add('1970–89');
-        else if (fy < 2010) presentDecades.add('1990–09');
-        else                presentDecades.add('2010+');
-      });
-      if (presentDecades.size) {
-        parts.push('<span class="legend-section">Reforestation</span>');
-        REFOR_DECADES.filter(d => presentDecades.has(d.label)).forEach(d => {
-          parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${d.color}"></span>${d.label}</span>`);
         });
       }
     }
@@ -1663,5 +2154,8 @@
   });
 
 </script>
+
+<script data-goatcounter="https://fieldmap.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
