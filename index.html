@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Newaygo Field Map</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -195,6 +195,9 @@
     }
     .loc-btn:hover { background: #22263a; color: #dde1f0; }
     .loc-btn.active { color: #4a9de0; border-color: #3a7dc0; }
+    .loc-avg-btn { font-size: 13px; display: none; }
+    .loc-avg-btn.visible { display: flex; }
+    .loc-avg-btn.averaging { color: #e8a030; border-color: #b07020; }
 
     .loc-dot {
       width: 14px; height: 14px;
@@ -618,6 +621,11 @@
 
       /* push zoom controls down so they don't sit behind hamburger */
       .leaflet-top.leaflet-left { margin-top: 60px; }
+      /* safe-area padding for GPS button (iOS notch / dynamic island) */
+      .leaflet-top.leaflet-right {
+        padding-top: max(10px, env(safe-area-inset-top));
+        padding-right: max(10px, env(safe-area-inset-right));
+      }
     }
   </style>
 </head>
@@ -1652,57 +1660,125 @@
   });
 
   // ── GPS locate ───────────────────────────────────────────────────
-  let locMarker = null, locCircle = null, locWatching = false, locFirstFix = false;
+  // ── GPS state ─────────────────────────────────────────────────────
+  let locMarker    = null, locCircle    = null;
+  let locWatching  = false, locFirstFix = false;
+  let smoothedPos  = null;           // EMA-smoothed position
+  let locAveraging = false;
+  let locAvgBuf    = [];             // [{lat,lng,acc}] accumulation buffer
+  let locAvgCountdown = 0;
+  let locAvgInterval  = null;
+  let locAvgMarker = null, locAvgCircle = null;
+  let locAvgBtn    = null;
+
+  const LOC_ACC_THRESH = 50;   // discard fixes worse than this (meters)
+  const LOC_EMA_ALPHA  = 0.35; // 0=frozen, 1=raw; 0.35 smooths jitter while staying responsive
+  const LOC_AVG_SECS   = 15;
+
+  function stopLocate(locBtn) {
+    map.stopLocate();
+    locWatching = false; locFirstFix = false; smoothedPos = null;
+    locBtn.classList.remove('active'); locBtn.innerHTML = '⊕';
+    locAvgBtn.classList.remove('visible', 'averaging');
+    if (locAvgInterval) { clearInterval(locAvgInterval); locAvgInterval = null; }
+    locAveraging = false;
+    [locMarker, locCircle, locAvgMarker, locAvgCircle].forEach(l => { if (l) map.removeLayer(l); });
+    locMarker = locCircle = locAvgMarker = locAvgCircle = null;
+  }
+
+  function finalizeAverage() {
+    if (!locAvgBuf.length) return;
+    let wSum = 0, latSum = 0, lngSum = 0, minAcc = Infinity;
+    for (const { lat, lng, acc } of locAvgBuf) {
+      const w = 1 / (acc * acc);
+      wSum += w; latSum += w * lat; lngSum += w * lng;
+      if (acc < minAcc) minAcc = acc;
+    }
+    const avgLat = latSum / wSum, avgLng = lngSum / wSum;
+    const n = locAvgBuf.length;
+    if (locAvgMarker) map.removeLayer(locAvgMarker);
+    if (locAvgCircle) map.removeLayer(locAvgCircle);
+    locAvgMarker = L.circleMarker([avgLat, avgLng], {
+      radius: 7, color: '#e8a030', fillColor: '#e8a030', fillOpacity: 0.9, weight: 2
+    }).bindTooltip(`Avg position · ${n} fixes · ±${Math.round(minAcc)} m`, { permanent: false })
+      .addTo(map);
+    locAvgCircle = L.circle([avgLat, avgLng], {
+      radius: minAcc / 2, color: '#e8a030', fillColor: '#e8a030', fillOpacity: 0.07, weight: 1
+    }).addTo(map);
+    map.panTo([avgLat, avgLng]);
+  }
+
+  function startAveraging() {
+    locAveraging = true; locAvgBuf = []; locAvgCountdown = LOC_AVG_SECS;
+    locAvgBtn.classList.add('averaging');
+    locAvgBtn.innerHTML = `${locAvgCountdown}`;
+    locAvgBtn.disabled = true;
+    locAvgInterval = setInterval(() => {
+      locAvgCountdown--;
+      locAvgBtn.innerHTML = locAvgCountdown > 0 ? `${locAvgCountdown}` : '⊙';
+      if (locAvgCountdown <= 0) {
+        clearInterval(locAvgInterval); locAvgInterval = null;
+        locAveraging = false;
+        locAvgBtn.classList.remove('averaging');
+        locAvgBtn.disabled = false;
+        finalizeAverage();
+      }
+    }, 1000);
+  }
 
   const LocControl = L.Control.extend({
     options: { position: 'topright' },
     onAdd() {
-      const btn = L.DomUtil.create('button', 'loc-btn');
-      btn.title = 'My location';
-      btn.innerHTML = '⊕';
-      L.DomEvent.disableClickPropagation(btn);
+      const wrap = L.DomUtil.create('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+      const btn = L.DomUtil.create('button', 'loc-btn', wrap);
+      btn.title = 'My location'; btn.innerHTML = '⊕';
+      const avg = L.DomUtil.create('button', 'loc-btn loc-avg-btn', wrap);
+      avg.title = `Average position (${LOC_AVG_SECS}s)`; avg.innerHTML = '⊙';
+      locAvgBtn = avg;
+      L.DomEvent.disableClickPropagation(wrap);
       L.DomEvent.on(btn, 'click', () => {
-        if (locWatching) {
-          map.stopLocate();
-          locWatching = false; locFirstFix = false;
-          btn.classList.remove('active');
-          btn.innerHTML = '⊕';
-          if (locMarker) { map.removeLayer(locMarker); locMarker = null; }
-          if (locCircle) { map.removeLayer(locCircle); locCircle = null; }
-        } else {
+        if (locWatching) { stopLocate(btn); }
+        else {
           locWatching = true; locFirstFix = false;
-          btn.classList.add('active');
-          btn.innerHTML = '●';
+          btn.classList.add('active'); btn.innerHTML = '●';
+          avg.classList.add('visible');
           map.locate({ watch: true, enableHighAccuracy: true });
         }
       });
-      return btn;
+      L.DomEvent.on(avg, 'click', () => { if (!locAveraging) startAveraging(); });
+      return wrap;
     }
   });
   map.addControl(new LocControl());
 
   map.on('locationfound', e => {
     if (!locWatching) return;
-    if (!locFirstFix) {
-      map.setView(e.latlng, Math.max(map.getZoom(), 15));
-      locFirstFix = true;
+    if (e.accuracy > LOC_ACC_THRESH) return;   // discard poor fixes
+
+    // EMA smoothing
+    if (!smoothedPos) smoothedPos = { lat: e.latlng.lat, lng: e.latlng.lng };
+    else {
+      smoothedPos.lat = LOC_EMA_ALPHA * e.latlng.lat + (1 - LOC_EMA_ALPHA) * smoothedPos.lat;
+      smoothedPos.lng = LOC_EMA_ALPHA * e.latlng.lng + (1 - LOC_EMA_ALPHA) * smoothedPos.lng;
     }
-    if (locMarker) {
-      locMarker.setLatLng(e.latlng);
-    } else {
-      locMarker = L.marker(e.latlng, {
-        icon: L.divIcon({ className: 'loc-dot', iconSize: [14,14], iconAnchor: [7,7] }),
-        zIndexOffset: 1000
-      }).addTo(map);
-    }
-    if (locCircle) {
-      locCircle.setLatLng(e.latlng).setRadius(e.accuracy / 2);
-    } else {
-      locCircle = L.circle(e.latlng, {
-        radius: e.accuracy / 2,
-        color: '#4a9de0', fillColor: '#4a9de0', fillOpacity: 0.08, weight: 1
-      }).addTo(map);
-    }
+    const pos = L.latLng(smoothedPos.lat, smoothedPos.lng);
+
+    if (!locFirstFix) { map.setView(pos, Math.max(map.getZoom(), 15)); locFirstFix = true; }
+
+    if (locMarker) locMarker.setLatLng(pos);
+    else locMarker = L.marker(pos, {
+      icon: L.divIcon({ className: 'loc-dot', iconSize: [14,14], iconAnchor: [7,7] }),
+      zIndexOffset: 1000
+    }).addTo(map);
+
+    if (locCircle) locCircle.setLatLng(pos).setRadius(e.accuracy / 2);
+    else locCircle = L.circle(pos, {
+      radius: e.accuracy / 2, color: '#4a9de0', fillColor: '#4a9de0', fillOpacity: 0.08, weight: 1
+    }).addTo(map);
+
+    // Accumulate for weighted average
+    if (locAveraging) locAvgBuf.push({ lat: e.latlng.lat, lng: e.latlng.lng, acc: e.accuracy });
   });
 
   map.on('locationerror', e => console.warn('GPS:', e.message));
