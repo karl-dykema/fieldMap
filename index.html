@@ -272,6 +272,15 @@
       color: #dde1f0;
     }
 
+    .popup-maps-link {
+      font-size: 10px;
+      color: #5b8dee;
+      text-decoration: none;
+      opacity: 0.8;
+      margin-left: 4px;
+    }
+    .popup-maps-link:hover { opacity: 1; text-decoration: underline; }
+
     .popup-loading {
       color: #4a5070;
       font-size: 12px;
@@ -1129,7 +1138,10 @@
     }
 
     if (p.CALC_ACRE)  html += `<div class="popup-row">Acreage: <span>${parseFloat(p.CALC_ACRE).toFixed(2)} ac</span></div>`;
-    if (p.P_ADDRESS)  html += `<div class="popup-row">Address: <span>${p.P_ADDRESS}</span></div>`;
+    if (p.P_ADDRESS) {
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.P_ADDRESS + ', Michigan')}`;
+      html += `<div class="popup-row">Property address: <span>${p.P_ADDRESS} <a href="${mapsUrl}" target="_blank" rel="noopener" class="popup-maps-link">↗ Maps</a></span></div>`;
+    }
     if (p.OWNER_ADDR) html += `<div class="popup-row">Owner address: <span>${p.OWNER_ADDR}</span></div>`;
     if (p.CLASS)      html += `<div class="popup-row">Class: <span>${p.CLASS}</span></div>`;
     if (p.ASSESSED)   html += `<div class="popup-row">SEV: <span>$${parseInt(p.ASSESSED).toLocaleString()}</span></div>`;
