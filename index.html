@@ -621,11 +621,16 @@
 
       /* push zoom controls down so they don't sit behind hamburger */
       .leaflet-top.leaflet-left { margin-top: 60px; }
-      /* safe-area padding for GPS button (iOS notch / dynamic island) */
+      /* pull GPS button out of map stacking context; safe-area for notch */
       .leaflet-top.leaflet-right {
-        padding-top: max(10px, env(safe-area-inset-top));
-        padding-right: max(10px, env(safe-area-inset-right));
+        position: fixed !important;
+        top: max(10px, env(safe-area-inset-top));
+        right: max(10px, env(safe-area-inset-right));
+        z-index: 1300;
       }
+      /* attribution sits at true bottom on mobile (no legend offset needed) */
+      .leaflet-bottom { bottom: 0 !important; }
+      .leaflet-control-attribution { margin-bottom: 0 !important; }
     }
   </style>
 </head>
