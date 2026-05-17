@@ -682,7 +682,7 @@
       <input type="checkbox" id="chk-nlcd"> Land Cover (NLCD 2021)
     </label>
     <label class="check-item">
-      <input type="checkbox" id="chk-contours"> Contours (5ft)
+      <input type="checkbox" id="chk-contours"> Contours (5ft + Lake Depth)
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-soils"> Soils
@@ -719,6 +719,7 @@
         <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
         <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
         <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
+        <span class="pl-dot" style="background:#b8993a" title="Agriculture"></span>
         <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
       </span>
     </label>
@@ -820,6 +821,7 @@
         <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
         <button class="browse-cat-btn" data-cat="state">State of MI</button>
         <button class="browse-cat-btn" data-cat="energy">Energy Utilities</button>
+        <button class="browse-cat-btn" data-cat="ag">Agriculture</button>
         <button class="browse-cat-btn" data-cat="known">Known Sites</button>
       </div>
       <div class="browse-nav">
@@ -1191,7 +1193,7 @@
   const COUNTY_MS = 'https://arcgisweb.countyofnewaygo.com/hosting/rest/services/WebMaps/PublicCountyViewerProV3/MapServer';
 
   const roadsLayer    = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [5],  opacity: 0.9 });
-  const contoursLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [16], opacity: 0.7 });
+  const contoursLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [16, 25], opacity: 0.7 });
   const soilsLayer    = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [32], opacity: 0.7 });
 
   document.getElementById('chk-roads').addEventListener('change', e => {
@@ -1461,6 +1463,13 @@
       fill: '#c86820', border: '#8a4010',
       url: PARCELS_URL,
       where: "UPPER(OWNER_NAME) LIKE '%CONSUMERS ENERGY%' OR UPPER(OWNER_NAME) LIKE '%ANR PIPELINE%' OR UPPER(OWNER_NAME) LIKE '%MID MICHIGAN GAS STORAGE%' OR UPPER(OWNER_NAME) LIKE '%GREAT LAKES ENERGY%' OR UPPER(OWNER_NAME) LIKE '%DTE ENERGY%' OR UPPER(OWNER_NAME) LIKE '%DTE GAS%' OR UPPER(OWNER_NAME) LIKE '%WOLVERINE POWER%' OR UPPER(OWNER_NAME) LIKE '%WOLVERINE ELECTRIC%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    ag: {
+      label: 'Agriculture', navLabel: 'Agriculture',
+      fill: '#b8993a', border: '#8a7020',
+      url: PARCELS_URL,
+      where: "CLASS IN ('101','102')",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     known: {
