@@ -719,10 +719,30 @@
         <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
         <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
         <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
-        <span class="pl-dot" style="background:#b8993a" title="Agriculture"></span>
         <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
       </span>
     </label>
+  </div>
+
+  <div class="section">
+    <div class="section-label species-toggle" id="ag-toggle">
+      Agriculture <span class="species-arrow closed">▾</span>
+    </div>
+    <div id="ag-body" style="display:none">
+      <label class="check-item">
+        <input type="checkbox" id="chk-ag-parcels">
+        <span class="inat-dot" style="background:#b8993a"></span>
+        Ag Parcels (Class 101/102)
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-drains">
+        Drains
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-drain-districts">
+        Drain Districts
+      </label>
+    </div>
   </div>
 
   <div class="section">
@@ -821,7 +841,6 @@
         <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
         <button class="browse-cat-btn" data-cat="state">State of MI</button>
         <button class="browse-cat-btn" data-cat="energy">Energy Utilities</button>
-        <button class="browse-cat-btn" data-cat="ag">Agriculture</button>
         <button class="browse-cat-btn" data-cat="known">Known Sites</button>
       </div>
       <div class="browse-nav">
@@ -1262,6 +1281,35 @@
     e.target.checked ? soilsLayer.addTo(map) : map.removeLayer(soilsLayer);
   });
 
+  // ── Agriculture layers ────────────────────────────────────────────
+  const agParcelsLayer = L.esri.featureLayer({
+    url: PARCELS_URL,
+    where: "CLASS IN ('101','102')",
+    style: { color: '#8a7020', weight: 1, fillColor: '#b8993a', fillOpacity: 0.35, opacity: 0.8 },
+    attribution: 'Newaygo County GIS — Agricultural parcels'
+  });
+
+  const drainsLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [7], opacity: 0.8 });
+  const drainDistrictsLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [12], opacity: 0.7 });
+
+  document.getElementById('chk-ag-parcels').addEventListener('change', e => {
+    e.target.checked ? agParcelsLayer.addTo(map) : map.removeLayer(agParcelsLayer);
+  });
+  document.getElementById('chk-drains').addEventListener('change', e => {
+    e.target.checked ? drainsLayer.addTo(map) : map.removeLayer(drainsLayer);
+  });
+  document.getElementById('chk-drain-districts').addEventListener('change', e => {
+    e.target.checked ? drainDistrictsLayer.addTo(map) : map.removeLayer(drainDistrictsLayer);
+  });
+
+  document.getElementById('ag-toggle').addEventListener('click', () => {
+    const body = document.getElementById('ag-body');
+    const arrow = document.querySelector('#ag-toggle .species-arrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
   // ── Wetlands (NWI) ───────────────────────────────────────────────
   const wetlandsLayer = L.tileLayer(
     'https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer/tile/{z}/{y}/{x}',
@@ -1463,13 +1511,6 @@
       fill: '#c86820', border: '#8a4010',
       url: PARCELS_URL,
       where: "UPPER(OWNER_NAME) LIKE '%CONSUMERS ENERGY%' OR UPPER(OWNER_NAME) LIKE '%ANR PIPELINE%' OR UPPER(OWNER_NAME) LIKE '%MID MICHIGAN GAS STORAGE%' OR UPPER(OWNER_NAME) LIKE '%GREAT LAKES ENERGY%' OR UPPER(OWNER_NAME) LIKE '%DTE ENERGY%' OR UPPER(OWNER_NAME) LIKE '%DTE GAS%' OR UPPER(OWNER_NAME) LIKE '%WOLVERINE POWER%' OR UPPER(OWNER_NAME) LIKE '%WOLVERINE ELECTRIC%'",
-      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
-    },
-    ag: {
-      label: 'Agriculture', navLabel: 'Agriculture',
-      fill: '#b8993a', border: '#8a7020',
-      url: PARCELS_URL,
-      where: "CLASS IN ('101','102')",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     known: {
