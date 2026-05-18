@@ -742,6 +742,10 @@
         <input type="checkbox" id="chk-drain-districts">
         Drain Districts
       </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-cdl">
+        Cropland Data Layer (CDL)
+      </label>
     </div>
   </div>
 
@@ -1291,6 +1295,11 @@
 
   const drainsLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [7], opacity: 0.8 });
   const drainDistrictsLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [12], opacity: 0.7 });
+  const cdlLayer = L.esri.imageMapLayer({
+    url: 'https://pdi.scinet.usda.gov/image/rest/services/CDL_WM/ImageServer',
+    opacity: 0.7,
+    attribution: 'USDA NASS Cropland Data Layer'
+  });
 
   document.getElementById('chk-ag-parcels').addEventListener('change', e => {
     e.target.checked ? agParcelsLayer.addTo(map) : map.removeLayer(agParcelsLayer);
@@ -1300,6 +1309,9 @@
   });
   document.getElementById('chk-drain-districts').addEventListener('change', e => {
     e.target.checked ? drainDistrictsLayer.addTo(map) : map.removeLayer(drainDistrictsLayer);
+  });
+  document.getElementById('chk-cdl').addEventListener('change', e => {
+    e.target.checked ? cdlLayer.addTo(map) : map.removeLayer(cdlLayer);
   });
 
   document.getElementById('ag-toggle').addEventListener('click', () => {
