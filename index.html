@@ -1387,6 +1387,25 @@
     e.target.checked ? nlcdLayer.addTo(map) : map.removeLayer(nlcdLayer);
   });
 
+  // Official USDA CDL colors for categories common in W Michigan / Newaygo County
+  const CDL_LEGEND = [
+    [1,   'Corn',           '#FFD400'],
+    [5,   'Soybeans',       '#267300'],
+    [36,  'Alfalfa',        '#A6F28C'],
+    [37,  'Hay',            '#00AF4E'],
+    [43,  'Potatoes',       '#A6004F'],
+    [61,  'Fallow/Idle',    '#CCBEA2'],
+    [176, 'Pasture/Grass',  '#E8FFBF'],
+    [141, 'Decid. Forest',  '#93CC93'],
+    [142, 'Evgr. Forest',   '#487C3E'],
+    [143, 'Mixed Forest',   '#5C8025'],
+    [152, 'Shrubland',      '#CCBA7D'],
+    [190, 'Woody Wetland',  '#7AB6F5'],
+    [195, 'Herb. Wetland',  '#6DB7E5'],
+    [111, 'Open Water',     '#4880BA'],
+    [121, 'Developed',      '#C4C4C4'],
+  ];
+
   // ── Pre-settlement vegetation ─────────────────────────────────────
   const VEG_URL = 'https://services1.arcgis.com/4ezfu5dIwH83BUNL/ArcGIS/rest/services/Michigan_Land_Cover_Circa_1800/FeatureServer/0';
 
@@ -2197,6 +2216,14 @@
           parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${shortVegLabel(type)}</span>`);
         });
       }
+    }
+
+    // CDL — static set of most common Newaygo County categories
+    if (document.getElementById('chk-cdl').checked) {
+      parts.push('<span class="legend-section">CDL</span>');
+      CDL_LEGEND.forEach(([, label, color]) => {
+        parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${label}</span>`);
+      });
     }
 
     // Wetlands
