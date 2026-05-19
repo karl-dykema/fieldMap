@@ -682,6 +682,9 @@
       <input type="checkbox" id="chk-nlcd"> Land Cover (NLCD 2021)
     </label>
     <label class="check-item">
+      <input type="checkbox" id="chk-lidar"> LiDAR Hillshade (3DEP)
+    </label>
+    <label class="check-item">
       <input type="checkbox" id="chk-contours"> Contours (5ft + Lake Depth)
     </label>
     <label class="check-item">
@@ -1210,6 +1213,18 @@
 
   document.getElementById('chk-fbfm').addEventListener('change', e => {
     e.target.checked ? fbfmLayer.addTo(map) : map.removeLayer(fbfmLayer);
+  });
+
+  // ── USGS 3DEP LiDAR hillshade ─────────────────────────────────────
+  const lidarLayer = L.esri.imageMapLayer({
+    url: 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',
+    renderingRule: { rasterFunction: 'Hillshade Multidirectional' },
+    opacity: 0.55,
+    attribution: 'USGS 3DEP Elevation'
+  });
+
+  document.getElementById('chk-lidar').addEventListener('change', e => {
+    e.target.checked ? lidarLayer.addTo(map) : map.removeLayer(lidarLayer);
   });
 
   // ── County layers (contours + soils) ─────────────────────────────
