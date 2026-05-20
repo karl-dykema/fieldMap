@@ -967,6 +967,13 @@
 </div>
 
 <div id="map"></div>
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <pattern id="parcel-hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(180,200,255,0.18)" stroke-width="1.2"/>
+    </pattern>
+  </defs>
+</svg>
 <div id="map-legend"></div>
 
 <div id="sel-bar">
@@ -1034,6 +1041,7 @@
   map.on('moveend', () => {
     const c = map.getCenter();
     history.replaceState(null, '', `#${c.lat.toFixed(5)},${c.lng.toFixed(5)},${map.getZoom()}z`);
+    if (parcelsEnabled && map.getZoom() >= MIN_ZOOM) updateUnloadedMask();
     scheduleParcelLoad();
   });
 
@@ -1124,28 +1132,73 @@
     });
     return b;
   }
-  function _fetchCells(cells, onDone) {
-    const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
-    if (!toFetch.length) { if (onDone) onDone(); return; }
-    toFetch.forEach(({ r, c }) => pendingCells.add(_cellKey(r, c)));
-    if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); }
+  const _HATCH_STYLE = { fillColor: 'url(#parcel-hatch)', fillOpacity: 1,
+    color: 'rgba(160,180,255,0.18)', weight: 0.5, interactive: false };
+  const unloadedCellLayers = new Map(); // cellKey → L.rectangle
+  const unloadedGroup = L.layerGroup();
+
+  function updateUnloadedMask() {
+    if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) {
+      unloadedGroup.clearLayers();
+      unloadedCellLayers.clear();
+      return;
+    }
+    const viewCells = _cellsForBounds(map.getBounds().pad(0.5));
+    const viewKeys  = new Set(viewCells.map(({ r, c }) => _cellKey(r, c)));
+    // Remove rectangles that are now fetched or out of view
+    unloadedCellLayers.forEach((rect, key) => {
+      if (fetchedCells.has(key) || !viewKeys.has(key)) {
+        unloadedGroup.removeLayer(rect);
+        unloadedCellLayers.delete(key);
+      }
+    });
+    // Add rectangles for unfetched cells now in view
+    viewCells.forEach(({ r, c }) => {
+      const key = _cellKey(r, c);
+      if (fetchedCells.has(key) || unloadedCellLayers.has(key)) return;
+      const rect = L.rectangle(
+        [[r * CELL_DEG, c * CELL_DEG], [(r + 1) * CELL_DEG, (c + 1) * CELL_DEG]],
+        { ..._HATCH_STYLE }
+      );
+      unloadedGroup.addLayer(rect);
+      unloadedCellLayers.set(key, rect);
+    });
+  }
+
+  function _fetchOneCell(r, c, onDone) {
+    const key = _cellKey(r, c);
+    if (fetchedCells.has(key) || pendingCells.has(key)) { if (onDone) onDone(); return; }
+    if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); updateUnloadedMask(); }
+    pendingCells.add(key);
+    const bounds = L.latLngBounds([r * CELL_DEG, c * CELL_DEG], [(r + 1) * CELL_DEG, (c + 1) * CELL_DEG]);
     L.esri.query({ url: PARCELS_URL })
-      .within(_bboxForCells(toFetch))
+      .within(bounds)
       .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
       .run((error, fc) => {
-        toFetch.forEach(({ r, c }) => {
-          pendingCells.delete(_cellKey(r, c));
-          if (!error && fc) fetchedCells.add(_cellKey(r, c));
-        });
+        pendingCells.delete(key);
         if (error) { console.error('Parcel query error:', error); if (onDone) onDone(); return; }
         if (!fc)   { if (onDone) onDone(); return; }
-        if (fc.exceededTransferLimit) console.warn('⚠ Record limit hit — zoom in for complete coverage');
+        if (fc.exceededTransferLimit) {
+          // Still store what we got but don't mark fetched so we retry
+          console.warn(`⚠ Record limit in cell ${key} — will retry`);
+        } else {
+          fetchedCells.add(key);
+        }
         fc.features.forEach(f => {
           const id = f.properties.PACKEDPIN || f.properties.PIN;
           if (id) featureCache.set(id, f);
         });
+        // Remove this cell's mask rectangle now that it's loaded
+        const rect = unloadedCellLayers.get(key);
+        if (rect && fetchedCells.has(key)) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(key); }
         if (onDone) onDone();
       });
+  }
+  function _fetchCells(cells, onDone) {
+    const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
+    if (!toFetch.length) { if (onDone) onDone(); return; }
+    let remaining = toFetch.length;
+    toFetch.forEach(({ r, c }) => _fetchOneCell(r, c, () => { if (--remaining === 0 && onDone) onDone(); }));
   }
   function _prefetchAdjacent(visibleCells) {
     if (!parcelsEnabled) return;
@@ -1156,7 +1209,7 @@
         if (dr === 0 && dc === 0) continue;
         const k = _cellKey(r + dr, c + dc);
         if (!vis.has(k) && !fetchedCells.has(k) && !pendingCells.has(k)) {
-          vis.add(k); // dedupe within adjacent set
+          vis.add(k);
           adj.push({ r: r + dr, c: c + dc });
         }
       }
@@ -1165,7 +1218,7 @@
     let i = 0;
     function next(dl) {
       while (i < adj.length && (dl.timeRemaining() > 8 || dl.didTimeout))
-        _fetchCells([adj[i++]], null);
+        _fetchOneCell(adj[i].r, adj[i++].c, null);
       if (i < adj.length) requestIdleCallback(next, { timeout: 8000 });
     }
     requestIdleCallback(next, { timeout: 8000 });
@@ -1295,6 +1348,7 @@
   function loadParcels() {
     if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
     const visibleCells = _cellsForBounds(map.getBounds().pad(0.3));
+    updateUnloadedMask();
     const allCached = visibleCells.every(({ r, c }) => fetchedCells.has(_cellKey(r, c)));
     if (allCached) {
       renderParcels();
@@ -1932,18 +1986,22 @@
   document.getElementById('chk-parcels').addEventListener('change', e => {
     parcelsEnabled = e.target.checked;
     if (parcelsEnabled) {
+      unloadedGroup.addTo(map);
       if (map.getZoom() < MIN_ZOOM) showZoomHint(true);
       else loadParcels();
     } else {
       if (parcelBoundary)   { map.removeLayer(parcelBoundary);   parcelBoundary = null; }
       if (parcelGroupLayer) { map.removeLayer(parcelGroupLayer); parcelGroupLayer = null; }
+      unloadedGroup.clearLayers();
+      unloadedCellLayers.clear();
+      map.removeLayer(unloadedGroup);
       showZoomHint(false);
       clearMultiSelection();
       selectMode = false;
       const selBtn = document.getElementById('btn-select-mode');
       selBtn.classList.remove('active');
       selBtn.textContent = 'Select parcels';
-      // featureCache kept intact so re-enabling is instant
+      // featureCache and fetchedCells kept intact so re-enabling is instant
     }
   });
 
