@@ -970,7 +970,7 @@
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
   <defs>
     <pattern id="parcel-hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(180,200,255,0.18)" stroke-width="1.2"/>
+      <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(180,210,255,0.45)" stroke-width="2"/>
     </pattern>
   </defs>
 </svg>
@@ -1004,7 +1004,7 @@
 <script>
 
   const PARCELS_URL = 'https://arcgisweb.countyofnewaygo.com/hosting/rest/services/WebMaps/PublicCountyViewerProV3/MapServer/2';
-  const MIN_ZOOM    = 13;
+  const MIN_ZOOM    = 15;
   const SIM_THRESH  = 0.88;
 
   // ── URL hash: persist map position ───────────────────────────────
@@ -1133,7 +1133,7 @@
     return b;
   }
   const _HATCH_STYLE = { fillColor: 'url(#parcel-hatch)', fillOpacity: 1,
-    color: 'rgba(160,180,255,0.18)', weight: 0.5, interactive: false };
+    color: 'rgba(160,190,255,0.45)', weight: 1, interactive: false };
   const unloadedCellLayers = new Map(); // cellKey → L.rectangle
   const unloadedGroup = L.layerGroup();
 
