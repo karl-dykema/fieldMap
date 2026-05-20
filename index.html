@@ -380,6 +380,35 @@
     .export-btn:hover:not(:disabled) { background: #152a38; color: #b0e8f0; border-color: #5aacbc; }
     .export-btn:disabled { opacity: 0.4; cursor: default; }
 
+    /* ── Annotations panel ──────────────────────────────── */
+    .ann-row { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
+    .ann-label { width: 38px; flex-shrink: 0; font-size: 11px; color: #5a637a; }
+    .ann-swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+    .ann-swatch {
+      width: 17px; height: 17px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; flex-shrink: 0; transition: border-color 0.12s;
+    }
+    .ann-swatch.active, .ann-swatch:hover { border-color: #dde1f0; }
+    #ann-color-pick { width: 26px; height: 22px; padding: 0; border: none; background: none; cursor: pointer; border-radius: 3px; }
+    .ann-range { flex: 1; accent-color: #4a6aaa; cursor: pointer; }
+    .ann-val { min-width: 28px; font-size: 11px; text-align: right; color: #5a637a; }
+    .ann-tools { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0 0; }
+    .ann-btn {
+      padding: 4px 10px; font-size: 12px; border-radius: 4px;
+      background: #1e2238; border: 1px solid #2e3450; color: #8a93b4;
+      cursor: pointer; transition: background 0.12s, color 0.12s;
+    }
+    .ann-btn:hover { background: #2a3050; color: #dde1f0; }
+    .ann-btn.active { background: #3a4a7a; border-color: #5a7aaa; color: #dde1f0; }
+    .ann-btn-danger { border-color: #5a2020; color: #c06060; }
+    .ann-btn-danger:hover { background: #3a1818; color: #e08080; }
+    .ann-text-label {
+      color: inherit; font-family: inherit; font-size: 14px; font-weight: 700;
+      white-space: nowrap; pointer-events: none;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.9), -1px -1px 3px rgba(0,0,0,0.9),
+                   1px -1px 3px rgba(0,0,0,0.9), -1px 1px 3px rgba(0,0,0,0.9);
+    }
+
     /* ── Map legend bar ──────────────────────────────────── */
     #map-legend {
       position: fixed;
@@ -862,6 +891,48 @@
         <button class="browse-arrow" id="browse-next" disabled>&#8250;</button>
       </div>
       <div id="browse-info"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label species-toggle" id="ann-toggle">
+      Annotations <span class="species-arrow closed">▾</span>
+    </div>
+    <div id="ann-body" style="display:none">
+      <div class="ann-row">
+        <span class="ann-label">Color</span>
+        <div class="ann-swatches" id="ann-swatches">
+          <span class="ann-swatch active" style="background:#e84040" data-color="#e84040"></span>
+          <span class="ann-swatch" style="background:#f0a020" data-color="#f0a020"></span>
+          <span class="ann-swatch" style="background:#f0e020" data-color="#f0e020"></span>
+          <span class="ann-swatch" style="background:#40c060" data-color="#40c060"></span>
+          <span class="ann-swatch" style="background:#3080e0" data-color="#3080e0"></span>
+          <span class="ann-swatch" style="background:#a050e0" data-color="#a050e0"></span>
+          <span class="ann-swatch" style="background:#ffffff" data-color="#ffffff"></span>
+          <span class="ann-swatch" style="background:#222222" data-color="#222222"></span>
+        </div>
+        <input type="color" id="ann-color-pick" value="#e84040" title="Custom color">
+      </div>
+      <div class="ann-row">
+        <span class="ann-label">Width</span>
+        <input type="range" class="ann-range" id="ann-width" min="1" max="10" value="2">
+        <span class="ann-val" id="ann-width-val">2px</span>
+      </div>
+      <div class="ann-row">
+        <span class="ann-label">Fill %</span>
+        <input type="range" class="ann-range" id="ann-fill-op" min="0" max="80" value="20">
+        <span class="ann-val" id="ann-fill-op-val">20%</span>
+      </div>
+      <div class="ann-tools">
+        <button class="ann-btn" id="ann-polygon">Polygon</button>
+        <button class="ann-btn" id="ann-line">Line</button>
+        <button class="ann-btn" id="ann-point">Point</button>
+        <button class="ann-btn" id="ann-text">Text</button>
+      </div>
+      <div class="ann-tools">
+        <button class="ann-btn" id="ann-edit">Edit</button>
+        <button class="ann-btn ann-btn-danger" id="ann-clear">Clear All</button>
+      </div>
     </div>
   </div>
 
@@ -2295,6 +2366,124 @@
     cb.addEventListener('change', updateLegend)
   );
   map.on('moveend', updateLegend);
+
+  // ── Annotations (draw) ───────────────────────────────────────────
+  const drawnItems = L.featureGroup().addTo(map);
+  let annStyle = { color: '#e84040', weight: 2, fillColor: '#e84040', fillOpacity: 0.2 };
+  let activeDrawHandler = null;
+  let annEditHandler = null;
+
+  function setAnnColor(hex) {
+    annStyle.color = hex;
+    annStyle.fillColor = hex;
+    document.getElementById('ann-color-pick').value = hex;
+    document.querySelectorAll('.ann-swatch').forEach(s =>
+      s.classList.toggle('active', s.dataset.color === hex));
+  }
+
+  document.querySelectorAll('.ann-swatch').forEach(s =>
+    s.addEventListener('click', () => setAnnColor(s.dataset.color)));
+  document.getElementById('ann-color-pick').addEventListener('input', e => setAnnColor(e.target.value));
+
+  document.getElementById('ann-width').addEventListener('input', e => {
+    annStyle.weight = parseInt(e.target.value);
+    document.getElementById('ann-width-val').textContent = e.target.value + 'px';
+  });
+  document.getElementById('ann-fill-op').addEventListener('input', e => {
+    annStyle.fillOpacity = parseInt(e.target.value) / 100;
+    document.getElementById('ann-fill-op-val').textContent = e.target.value + '%';
+  });
+
+  function annSetActive(btnId) {
+    document.querySelectorAll('.ann-btn').forEach(b => b.classList.remove('active'));
+    if (btnId) document.getElementById(btnId).classList.add('active');
+  }
+
+  function stopDraw() {
+    if (activeDrawHandler) { try { activeDrawHandler.disable(); } catch(e) {} activeDrawHandler = null; }
+    if (annEditHandler) { try { annEditHandler.save(); annEditHandler.disable(); } catch(e) {} annEditHandler = null; }
+    annSetActive(null);
+  }
+
+  map.on(L.Draw.Event.CREATED, e => {
+    const layer = e.layer;
+    if (layer.setStyle) layer.setStyle({ ...annStyle });
+    drawnItems.addLayer(layer);
+    activeDrawHandler = null;
+    annSetActive(null);
+    layer.on('click', ev => {
+      ev.originalEvent.stopPropagation();
+      if (confirm('Delete this annotation?')) drawnItems.removeLayer(layer);
+    });
+  });
+
+  function startDrawTool(btnId, HandlerClass, opts) {
+    if (activeDrawHandler) { stopDraw(); return; }
+    stopDraw();
+    annSetActive(btnId);
+    activeDrawHandler = new HandlerClass(map, opts);
+    activeDrawHandler.enable();
+  }
+
+  document.getElementById('ann-polygon').addEventListener('click', function() {
+    startDrawTool('ann-polygon', L.Draw.Polygon,
+      { shapeOptions: { ...annStyle }, showArea: false });
+  });
+  document.getElementById('ann-line').addEventListener('click', function() {
+    startDrawTool('ann-line', L.Draw.Polyline,
+      { shapeOptions: { ...annStyle, fill: false } });
+  });
+  document.getElementById('ann-point').addEventListener('click', function() {
+    startDrawTool('ann-point', L.Draw.Marker, {});
+  });
+
+  // Text label tool
+  document.getElementById('ann-text').addEventListener('click', function() {
+    if (this.classList.contains('active')) { stopDraw(); map.off('click', placeTextLabel); return; }
+    stopDraw();
+    annSetActive('ann-text');
+    map.once('click', placeTextLabel);
+  });
+
+  function placeTextLabel(e) {
+    annSetActive(null);
+    const text = prompt('Label text:');
+    if (!text) return;
+    const color = annStyle.color;
+    const icon = L.divIcon({
+      className: '',
+      html: `<span class="ann-text-label" style="color:${color};font-size:${12 + annStyle.weight * 1.5}px">${text}</span>`,
+      iconAnchor: [0, 10]
+    });
+    const marker = L.marker(e.latlng, { icon, draggable: true });
+    marker.on('click', ev => {
+      ev.originalEvent.stopPropagation();
+      if (confirm('Delete "' + text + '"?')) drawnItems.removeLayer(marker);
+    });
+    drawnItems.addLayer(marker);
+  }
+
+  // Edit toggle
+  document.getElementById('ann-edit').addEventListener('click', function() {
+    if (annEditHandler) { stopDraw(); return; }
+    stopDraw();
+    annSetActive('ann-edit');
+    annEditHandler = new L.EditToolbar.Edit(map, { featureGroup: drawnItems });
+    annEditHandler.enable();
+  });
+
+  document.getElementById('ann-clear').addEventListener('click', () => {
+    if (drawnItems.getLayers().length === 0) return;
+    if (confirm('Delete all annotations?')) { stopDraw(); drawnItems.clearLayers(); }
+  });
+
+  document.getElementById('ann-toggle').addEventListener('click', () => {
+    const body = document.getElementById('ann-body');
+    const arrow = document.querySelector('#ann-toggle .species-arrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
 
   // ── GeoPDF export ────────────────────────────────────────────────
   document.getElementById('btn-export-pdf').addEventListener('click', () => {
