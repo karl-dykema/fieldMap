@@ -408,6 +408,29 @@
       text-shadow: 1px 1px 3px rgba(0,0,0,0.9), -1px -1px 3px rgba(0,0,0,0.9),
                    1px -1px 3px rgba(0,0,0,0.9), -1px 1px 3px rgba(0,0,0,0.9);
     }
+    .ann-measure-tip {
+      background: rgba(12, 15, 26, 0.88); border: 1px solid #3a3e5a;
+      color: #dde1f0; font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5); pointer-events: none;
+    }
+    .ann-measure-tip::before { display: none; }
+    .ann-measure-popup .leaflet-popup-content-wrapper {
+      background: #161a2e; border: 1px solid #2e3450;
+      color: #dde1f0; border-radius: 6px; box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    }
+    .ann-measure-popup .leaflet-popup-tip { background: #161a2e; }
+    .ann-measure-popup .leaflet-popup-close-button { color: #5a637a; }
+    .ann-measure-popup .leaflet-popup-content { margin: 10px 14px; min-width: 160px; }
+    .ann-popup-row { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 4px; font-size: 12px; }
+    .ann-popup-lbl { color: #5a637a; }
+    .ann-popup-val { color: #dde1f0; font-weight: 600; }
+    .ann-popup-del-btn {
+      margin-top: 8px; width: 100%; padding: 3px 0; font-size: 11px;
+      background: #2a1010; border: 1px solid #5a2020; color: #c06060;
+      border-radius: 4px; cursor: pointer;
+    }
+    .ann-popup-del-btn:hover { background: #3a1818; color: #e08080; }
 
     /* ── Map legend bar ──────────────────────────────────── */
     #map-legend {
@@ -680,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.2</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.3</div>
   </div>
 
   <div class="section">
@@ -2405,16 +2428,78 @@
     annSetActive(null);
   }
 
+  function attachMeasurement(layer, layerType) {
+    if (layerType === 'polygon') {
+      const sqM = turf.area(layer.toGeoJSON());
+      const acres = sqM / 4046.856422;
+      const sqFt = sqM * 10.76391;
+      const ring = layer.getLatLngs()[0];
+      let perimM = 0;
+      for (let i = 0; i < ring.length; i++) perimM += ring[i].distanceTo(ring[(i + 1) % ring.length]);
+      const perimFt = perimM * 3.28084;
+
+      const shortLabel = acres >= 0.1 ? acres.toFixed(2) + ' ac' : Math.round(sqFt).toLocaleString() + ' ft²';
+      layer.bindTooltip(shortLabel, { permanent: true, direction: 'center', className: 'ann-measure-tip' });
+
+      const areaStr = acres.toFixed(2) + ' ac (' + Math.round(sqFt).toLocaleString() + ' ft²)';
+      const perimStr = perimFt >= 5280 ? (perimFt / 5280).toFixed(2) + ' mi' : Math.round(perimFt).toLocaleString() + ' ft';
+      layer.on('click', ev => {
+        ev.originalEvent.stopPropagation();
+        layer.bindPopup(
+          `<div class="ann-popup">
+            <div class="ann-popup-row"><span class="ann-popup-lbl">Area</span><span class="ann-popup-val">${areaStr}</span></div>
+            <div class="ann-popup-row"><span class="ann-popup-lbl">Perimeter</span><span class="ann-popup-val">${perimStr}</span></div>
+            <button class="ann-popup-del-btn">Delete</button>
+          </div>`,
+          { className: 'ann-measure-popup', closeButton: true }
+        ).openPopup(ev.latlng);
+        layer.once('popupopen', () => {
+          const btn = layer.getPopup().getElement().querySelector('.ann-popup-del-btn');
+          if (btn) btn.addEventListener('click', () => { layer.closePopup(); drawnItems.removeLayer(layer); });
+        });
+      });
+
+    } else if (layerType === 'polyline') {
+      const pts = layer.getLatLngs();
+      let lenM = 0;
+      for (let i = 0; i < pts.length - 1; i++) lenM += pts[i].distanceTo(pts[i + 1]);
+      const lenFt = lenM * 3.28084;
+      const lenMi = lenFt / 5280;
+
+      const shortLabel = lenFt < 5280 ? Math.round(lenFt).toLocaleString() + ' ft' : lenMi.toFixed(2) + ' mi';
+      layer.bindTooltip(shortLabel, { permanent: true, direction: 'center', className: 'ann-measure-tip' });
+
+      const lenStr = Math.round(lenFt).toLocaleString() + ' ft / ' + lenMi.toFixed(2) + ' mi';
+      layer.on('click', ev => {
+        ev.originalEvent.stopPropagation();
+        layer.bindPopup(
+          `<div class="ann-popup">
+            <div class="ann-popup-row"><span class="ann-popup-lbl">Length</span><span class="ann-popup-val">${lenStr}</span></div>
+            <button class="ann-popup-del-btn">Delete</button>
+          </div>`,
+          { className: 'ann-measure-popup', closeButton: true }
+        ).openPopup(ev.latlng);
+        layer.once('popupopen', () => {
+          const btn = layer.getPopup().getElement().querySelector('.ann-popup-del-btn');
+          if (btn) btn.addEventListener('click', () => { layer.closePopup(); drawnItems.removeLayer(layer); });
+        });
+      });
+
+    } else {
+      layer.on('click', ev => {
+        ev.originalEvent.stopPropagation();
+        if (confirm('Delete this annotation?')) drawnItems.removeLayer(layer);
+      });
+    }
+  }
+
   map.on(L.Draw.Event.CREATED, e => {
     const layer = e.layer;
     if (layer.setStyle) layer.setStyle({ ...annStyle });
     drawnItems.addLayer(layer);
     activeDrawHandler = null;
     annSetActive(null);
-    layer.on('click', ev => {
-      ev.originalEvent.stopPropagation();
-      if (confirm('Delete this annotation?')) drawnItems.removeLayer(layer);
-    });
+    attachMeasurement(layer, e.layerType);
   });
 
   function startDrawTool(btnId, HandlerClass, opts) {
@@ -2662,7 +2747,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.2'),
+          Version:      PDFString.of('2.3'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([

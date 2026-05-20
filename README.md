@@ -1,4 +1,4 @@
-# Newaygo Field Map · v2.2
+# Newaygo Field Map · v2.3
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
@@ -87,6 +87,12 @@ Click any parcel (or use multi-select) and choose **Analyze Habitat** to open a 
 - **Wetlands** — Michigan EGLE regulated wetland types clipped to parcel
 
 **Multi-parcel selection** — toggle "Select parcels" mode, click to accumulate parcels, then analyze combined habitat across the merged geometry.
+
+### Annotations
+Draw tools (polygon, line, point, text label) with color, stroke width, and fill opacity controls. Drawn shapes display automatic measurement labels:
+- **Polygon** — centroid label shows area (e.g. `4.2 ac`); click for full area (acres + ft²) and perimeter
+- **Line** — midpoint label shows length (e.g. `1,250 ft`); click for full ft / mi breakdown
+- Click any shape to open a measurement popup with a Delete option
 
 ### Navigation
 - URL hash position sync (`#lat,lng,zoomz`) — share or bookmark any view
