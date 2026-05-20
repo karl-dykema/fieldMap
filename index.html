@@ -723,6 +723,8 @@
         <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
         <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
         <span class="pl-dot" style="background:#e87878" title="Churches"></span>
+        <span class="pl-dot" style="background:#7aa8c8" title="Land Bank"></span>
+        <span class="pl-dot" style="background:#a8a898" title="Road / MDOT"></span>
         <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
       </span>
     </label>
@@ -850,6 +852,8 @@
         <button class="browse-cat-btn" data-cat="state">State of MI</button>
         <button class="browse-cat-btn" data-cat="energy">Energy Utilities</button>
         <button class="browse-cat-btn" data-cat="church">Churches</button>
+        <button class="browse-cat-btn" data-cat="landbank">Land Bank</button>
+        <button class="browse-cat-btn" data-cat="road">Road / MDOT</button>
         <button class="browse-cat-btn" data-cat="known">Known Sites</button>
       </div>
       <div class="browse-nav">
@@ -1566,6 +1570,20 @@
       fill: '#e87878', border: '#b84040',
       url: PARCELS_URL,
       where: "UPPER(OWNER_NAME) LIKE '%CHURC%' OR UPPER(OWNER_NAME) LIKE '%CHAPEL%' OR UPPER(OWNER_NAME) LIKE '%PARISH%' OR UPPER(OWNER_NAME) LIKE '%CONGREGATION%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    landbank: {
+      label: 'Land Bank', navLabel: 'Land Bank',
+      fill: '#7aa8c8', border: '#4a7898',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%LAND BANK%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    road: {
+      label: 'Road / MDOT', navLabel: 'Road / MDOT',
+      fill: '#a8a898', border: '#6a6a58',
+      url: PARCELS_URL,
+      where: "UPPER(OWNER_NAME) LIKE '%ROAD COMM%' OR UPPER(OWNER_NAME) = 'MDOT' OR UPPER(OWNER_NAME) LIKE '%MICH DEPT OF TRANS%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     known: {
