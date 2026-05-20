@@ -1583,7 +1583,7 @@
       label: 'Road / MDOT', navLabel: 'Road / MDOT',
       fill: '#a8a898', border: '#6a6a58',
       url: PARCELS_URL,
-      where: "UPPER(OWNER_NAME) LIKE '%ROAD COMM%' OR UPPER(OWNER_NAME) = 'MDOT' OR UPPER(OWNER_NAME) LIKE '%MICH DEPT OF TRANS%'",
+      where: "UPPER(OWNER_NAME) LIKE '%ROAD COMM%' OR UPPER(OWNER_NAME) LIKE '%MDOT%' OR UPPER(OWNER_NAME) LIKE '%MICH DEPT OF TRANS%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     known: {
@@ -1610,6 +1610,7 @@
     q.run((err, fc) => {
       if (err) console.warn(`PL fetch error [${cat}]:`, err);
       plCache[cat] = (!err && fc) ? fc.features.filter(f => f.geometry) : [];
+      console.log(`PL [${cat}]: ${plCache[cat].length} features`);
       cb(plCache[cat]);
     });
   }
@@ -2244,6 +2245,14 @@
   function updateLegend() {
     const el = document.getElementById('map-legend');
     const parts = [];
+
+    // Public lands — one swatch per category
+    if (document.getElementById('chk-public-lands').checked) {
+      parts.push('<span class="legend-section">Public Lands</span>');
+      Object.values(PL_CFG).forEach(cfg => {
+        parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${cfg.fill};border-color:${cfg.border}"></span>${cfg.label}</span>`);
+      });
+    }
 
     // Pre-settlement vegetation — show only cover types visible in current view
     if (document.getElementById('chk-veg').checked && vegLayer) {
