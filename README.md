@@ -1,4 +1,4 @@
-# Newaygo Field Map · v2.3
+# Newaygo Field Map · v2.4
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
@@ -17,7 +17,7 @@ An interactive web map for exploring land parcels, ecological layers, conservati
 - Loads county parcel records on demand, tiled by viewport
 - Click any parcel for owner, acreage, address, PIN, class, SEV, taxable value
 - **Fuzzy ownership grouping** (Jaro-Winkler similarity) — parcels with the same beneficial owner are dissolved into a single outline, with combined acreage and assessed values in the popup
-- 3,000-feature tile cache; re-requests only uncached cells
+- **Grid-cell cache** — map divided into ~7.8 km cells; already-loaded cells skip the network entirely, panning over cached terrain is instant; adjacent cells prefetched at idle priority so data is ready before you arrive; 5,000-feature cap
 
 ### Public Lands
 One-toggle overlay showing ten ownership categories in distinct colors:

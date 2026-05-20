@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.3</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.4</div>
   </div>
 
   <div class="section">
@@ -1103,7 +1103,73 @@
   }
 
   // ── Feature cache (dedup + smooth panning) ───────────────────────
-  const featureCache = new Map(); // PACKEDPIN → feature
+  const featureCache  = new Map(); // PACKEDPIN → feature
+  const fetchedCells  = new Set(); // grid cells already loaded from server
+  const pendingCells  = new Set(); // cells currently in-flight
+  const CELL_DEG      = 0.07;      // ~7.8 km lat × ~5.5 km lon at 43.5°N
+
+  function _cellKey(r, c) { return `${r},${c}`; }
+  function _cellsForBounds(b) {
+    const cells = [];
+    for (let r = Math.floor(b.getSouth() / CELL_DEG); r <= Math.floor(b.getNorth() / CELL_DEG); r++)
+      for (let c = Math.floor(b.getWest() / CELL_DEG); c <= Math.floor(b.getEast() / CELL_DEG); c++)
+        cells.push({ r, c });
+    return cells;
+  }
+  function _bboxForCells(cells) {
+    let b = null;
+    cells.forEach(({ r, c }) => {
+      const cb = L.latLngBounds([r * CELL_DEG, c * CELL_DEG], [(r + 1) * CELL_DEG, (c + 1) * CELL_DEG]);
+      b = b ? b.extend(cb) : cb;
+    });
+    return b;
+  }
+  function _fetchCells(cells, onDone) {
+    const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
+    if (!toFetch.length) { if (onDone) onDone(); return; }
+    toFetch.forEach(({ r, c }) => pendingCells.add(_cellKey(r, c)));
+    if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); }
+    L.esri.query({ url: PARCELS_URL })
+      .within(_bboxForCells(toFetch))
+      .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
+      .run((error, fc) => {
+        toFetch.forEach(({ r, c }) => {
+          pendingCells.delete(_cellKey(r, c));
+          if (!error && fc) fetchedCells.add(_cellKey(r, c));
+        });
+        if (error) { console.error('Parcel query error:', error); if (onDone) onDone(); return; }
+        if (!fc)   { if (onDone) onDone(); return; }
+        if (fc.exceededTransferLimit) console.warn('⚠ Record limit hit — zoom in for complete coverage');
+        fc.features.forEach(f => {
+          const id = f.properties.PACKEDPIN || f.properties.PIN;
+          if (id) featureCache.set(id, f);
+        });
+        if (onDone) onDone();
+      });
+  }
+  function _prefetchAdjacent(visibleCells) {
+    if (!parcelsEnabled) return;
+    const vis = new Set(visibleCells.map(({ r, c }) => _cellKey(r, c)));
+    const adj = [];
+    visibleCells.forEach(({ r, c }) => {
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const k = _cellKey(r + dr, c + dc);
+        if (!vis.has(k) && !fetchedCells.has(k) && !pendingCells.has(k)) {
+          vis.add(k); // dedupe within adjacent set
+          adj.push({ r: r + dr, c: c + dc });
+        }
+      }
+    });
+    if (!adj.length) return;
+    let i = 0;
+    function next(dl) {
+      while (i < adj.length && (dl.timeRemaining() > 8 || dl.didTimeout))
+        _fetchCells([adj[i++]], null);
+      if (i < adj.length) requestIdleCallback(next, { timeout: 8000 });
+    }
+    requestIdleCallback(next, { timeout: 8000 });
+  }
 
   // ── Parcel layers ─────────────────────────────────────────────────
   let parcelsEnabled   = false;
@@ -1228,27 +1294,17 @@
 
   function loadParcels() {
     if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
-
-    L.esri.query({ url: PARCELS_URL })
-      .within(map.getBounds().pad(0.3))
-      .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
-      .run(function(error, fc) {
-        if (error) { console.error('Parcel query error:', error); return; }
-        if (!fc) return;
-
-        if (fc.exceededTransferLimit)
-          console.warn('⚠ Record limit hit — zoom in for complete coverage');
-
-        // Cap cache to prevent memory growth
-        if (featureCache.size > 2500) featureCache.clear();
-
-        fc.features.forEach(f => {
-          const id = f.properties.PACKEDPIN || f.properties.PIN;
-          if (id) featureCache.set(id, f);
-        });
-
-        renderParcels();
-      });
+    const visibleCells = _cellsForBounds(map.getBounds().pad(0.3));
+    const allCached = visibleCells.every(({ r, c }) => fetchedCells.has(_cellKey(r, c)));
+    if (allCached) {
+      renderParcels();
+      _prefetchAdjacent(visibleCells);
+      return;
+    }
+    _fetchCells(visibleCells, () => {
+      renderParcels();
+      _prefetchAdjacent(visibleCells);
+    });
   }
 
   // Pending geometry/label for the habitat analyze button
@@ -2747,7 +2803,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.3'),
+          Version:      PDFString.of('2.4'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
