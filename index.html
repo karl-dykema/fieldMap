@@ -1165,34 +1165,57 @@
     });
   }
 
+  const cellRetryCounts = new Map(); // cellKey → failed attempt count
+  let   retryTimer      = null;
+
   // One batched ArcGIS query for all unfetched cells — minimises round-trips to the county server.
-  // If the server hits its record limit the cells stay un-fetched so the next pan retries them.
   function _fetchCells(cells, onDone) {
     const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
     if (!toFetch.length) { if (onDone) onDone(); return; }
-    if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); updateUnloadedMask(); }
+    if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); cellRetryCounts.clear(); updateUnloadedMask(); }
     toFetch.forEach(({ r, c }) => pendingCells.add(_cellKey(r, c)));
     L.esri.query({ url: PARCELS_URL })
       .within(_bboxForCells(toFetch))
       .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
       .run((error, fc) => {
         toFetch.forEach(({ r, c }) => {
-          pendingCells.delete(_cellKey(r, c));
+          const k = _cellKey(r, c);
+          pendingCells.delete(k);
           if (!error && fc && !fc.exceededTransferLimit) {
-            fetchedCells.add(_cellKey(r, c));
-            const rect = unloadedCellLayers.get(_cellKey(r, c));
-            if (rect) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(_cellKey(r, c)); }
+            fetchedCells.add(k);
+            cellRetryCounts.delete(k);
+            const rect = unloadedCellLayers.get(k);
+            if (rect) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(k); }
           }
         });
         if (error) { console.error('Parcel query error:', error); if (onDone) onDone(); return; }
         if (!fc)   { if (onDone) onDone(); return; }
-        if (fc.exceededTransferLimit) console.warn('⚠ Record limit hit — cells will retry on next pan');
+        if (fc.exceededTransferLimit) console.warn('⚠ Record limit hit — will retry');
         fc.features.forEach(f => {
           const id = f.properties.PACKEDPIN || f.properties.PIN;
           if (id) featureCache.set(id, f);
         });
         if (onDone) onDone();
       });
+  }
+
+  // After any fetch, retry visible unfetched cells (up to 3 attempts each, 4 s apart).
+  function _scheduleRetryIfNeeded() {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
+      const vis = _cellsForBounds(map.getBounds().pad(0.3));
+      const toRetry = vis.filter(({ r, c }) => {
+        const k = _cellKey(r, c);
+        return !fetchedCells.has(k) && !pendingCells.has(k) && (cellRetryCounts.get(k) || 0) < 3;
+      });
+      if (!toRetry.length) return;
+      toRetry.forEach(({ r, c }) => {
+        const k = _cellKey(r, c);
+        cellRetryCounts.set(k, (cellRetryCounts.get(k) || 0) + 1);
+      });
+      _fetchCells(toRetry, () => { scheduleRender(); _scheduleRetryIfNeeded(); });
+    }, 4000);
   }
 
   // Prefetch only the 4 cardinal neighbours as one batched request, at idle priority.
@@ -1349,6 +1372,7 @@
     _fetchCells(visibleCells, () => {
       scheduleRender();
       _prefetchAdjacent(visibleCells);
+      _scheduleRetryIfNeeded();
     });
   }
 
@@ -1986,6 +2010,7 @@
       unloadedGroup.clearLayers();
       unloadedCellLayers.clear();
       map.removeLayer(unloadedGroup);
+      clearTimeout(retryTimer);
       showZoomHint(false);
       clearMultiSelection();
       selectMode = false;
