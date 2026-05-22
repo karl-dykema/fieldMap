@@ -1165,63 +1165,49 @@
     });
   }
 
-  function _fetchOneCell(r, c, onDone) {
-    const key = _cellKey(r, c);
-    if (fetchedCells.has(key) || pendingCells.has(key)) { if (onDone) onDone(); return; }
+  // One batched ArcGIS query for all unfetched cells — minimises round-trips to the county server.
+  // If the server hits its record limit the cells stay un-fetched so the next pan retries them.
+  function _fetchCells(cells, onDone) {
+    const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
+    if (!toFetch.length) { if (onDone) onDone(); return; }
     if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); updateUnloadedMask(); }
-    pendingCells.add(key);
-    const bounds = L.latLngBounds([r * CELL_DEG, c * CELL_DEG], [(r + 1) * CELL_DEG, (c + 1) * CELL_DEG]);
+    toFetch.forEach(({ r, c }) => pendingCells.add(_cellKey(r, c)));
     L.esri.query({ url: PARCELS_URL })
-      .within(bounds)
+      .within(_bboxForCells(toFetch))
       .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
       .run((error, fc) => {
-        pendingCells.delete(key);
+        toFetch.forEach(({ r, c }) => {
+          pendingCells.delete(_cellKey(r, c));
+          if (!error && fc && !fc.exceededTransferLimit) {
+            fetchedCells.add(_cellKey(r, c));
+            const rect = unloadedCellLayers.get(_cellKey(r, c));
+            if (rect) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(_cellKey(r, c)); }
+          }
+        });
         if (error) { console.error('Parcel query error:', error); if (onDone) onDone(); return; }
         if (!fc)   { if (onDone) onDone(); return; }
-        if (fc.exceededTransferLimit) {
-          // Still store what we got but don't mark fetched so we retry
-          console.warn(`⚠ Record limit in cell ${key} — will retry`);
-        } else {
-          fetchedCells.add(key);
-        }
+        if (fc.exceededTransferLimit) console.warn('⚠ Record limit hit — cells will retry on next pan');
         fc.features.forEach(f => {
           const id = f.properties.PACKEDPIN || f.properties.PIN;
           if (id) featureCache.set(id, f);
         });
-        // Remove this cell's mask rectangle now that it's loaded
-        const rect = unloadedCellLayers.get(key);
-        if (rect && fetchedCells.has(key)) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(key); }
         if (onDone) onDone();
       });
   }
-  function _fetchCells(cells, onDone) {
-    const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
-    if (!toFetch.length) { if (onDone) onDone(); return; }
-    let remaining = toFetch.length;
-    toFetch.forEach(({ r, c }) => _fetchOneCell(r, c, () => { if (--remaining === 0 && onDone) onDone(); }));
-  }
+
+  // Prefetch only the 4 cardinal neighbours as one batched request, at idle priority.
   function _prefetchAdjacent(visibleCells) {
     if (!parcelsEnabled) return;
     const vis = new Set(visibleCells.map(({ r, c }) => _cellKey(r, c)));
     const adj = [];
     visibleCells.forEach(({ r, c }) => {
-      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        const k = _cellKey(r + dr, c + dc);
-        if (!vis.has(k) && !fetchedCells.has(k) && !pendingCells.has(k)) {
-          vis.add(k);
-          adj.push({ r: r + dr, c: c + dc });
-        }
-      }
+      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr, nc]) => {
+        const k = _cellKey(nr, nc);
+        if (!vis.has(k) && !fetchedCells.has(k) && !pendingCells.has(k)) { vis.add(k); adj.push({ r: nr, c: nc }); }
+      });
     });
     if (!adj.length) return;
-    let i = 0;
-    function next(dl) {
-      while (i < adj.length && (dl.timeRemaining() > 8 || dl.didTimeout))
-        _fetchOneCell(adj[i].r, adj[i++].c, null);
-      if (i < adj.length) requestIdleCallback(next, { timeout: 8000 });
-    }
-    requestIdleCallback(next, { timeout: 8000 });
+    requestIdleCallback(() => _fetchCells(adj, null), { timeout: 10000 });
   }
 
   // ── Parcel layers ─────────────────────────────────────────────────
@@ -1229,6 +1215,11 @@
   let parcelBoundary   = null;
   let parcelGroupLayer = null;
   let parcelLoadTimer  = null;
+  let parcelRenderTimer = null;
+  function scheduleRender() {
+    clearTimeout(parcelRenderTimer);
+    parcelRenderTimer = setTimeout(renderParcels, 120);
+  }
   let parcelGroups     = [];
   let featureLayerMap  = new Map(); // PIN → leaflet layer
   let multiGroupPins   = new Set(); // PINs belonging to multi-parcel owners
@@ -1342,7 +1333,7 @@
     if (map.getZoom() < MIN_ZOOM) { showZoomHint(true); return; }
     showZoomHint(false);
     clearTimeout(parcelLoadTimer);
-    parcelLoadTimer = setTimeout(loadParcels, 400);
+    parcelLoadTimer = setTimeout(loadParcels, 500);
   }
 
   function loadParcels() {
@@ -1351,12 +1342,12 @@
     updateUnloadedMask();
     const allCached = visibleCells.every(({ r, c }) => fetchedCells.has(_cellKey(r, c)));
     if (allCached) {
-      renderParcels();
+      scheduleRender();
       _prefetchAdjacent(visibleCells);
       return;
     }
     _fetchCells(visibleCells, () => {
-      renderParcels();
+      scheduleRender();
       _prefetchAdjacent(visibleCells);
     });
   }
