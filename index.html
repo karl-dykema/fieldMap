@@ -1112,8 +1112,7 @@
 
   // ── Feature cache (dedup + smooth panning) ───────────────────────
   const featureCache  = new Map(); // PACKEDPIN → feature
-  const fetchedCells  = new Set(); // grid cells already loaded from server
-  const pendingCells  = new Set(); // cells currently in-flight
+  const fetchedCells  = new Set(); // grid cells confirmed loaded (drives hatch mask)
   const CELL_DEG      = 0.07;      // ~7.8 km lat × ~5.5 km lon at 43.5°N
 
   function _cellKey(r, c) { return `${r},${c}`; }
@@ -1165,86 +1164,13 @@
     });
   }
 
-  const cellRetryCounts = new Map(); // cellKey → failed attempt count
-  let   retryTimer      = null;
-
-  // Query `bounds` and mark `cells` as fetched on success.
-  // Separating the query bounds from the cell list lets loadParcels use the real
-  // viewport bbox (same as the original code) while still tracking cells for the hatch mask.
-  function _fetchCells(cells, bounds, onDone) {
-    const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
-    if (!toFetch.length) { if (onDone) onDone(); return; }
-    if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); cellRetryCounts.clear(); updateUnloadedMask(); }
-    toFetch.forEach(({ r, c }) => pendingCells.add(_cellKey(r, c)));
-    L.esri.query({ url: PARCELS_URL })
-      .within(bounds)
-      .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
-      .run((error, fc) => {
-        toFetch.forEach(({ r, c }) => {
-          const k = _cellKey(r, c);
-          pendingCells.delete(k);
-          if (!error && fc && !fc.exceededTransferLimit) {
-            fetchedCells.add(k);
-            cellRetryCounts.delete(k);
-            const rect = unloadedCellLayers.get(k);
-            if (rect) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(k); }
-          }
-        });
-        if (error) { console.error('Parcel query error:', error); if (onDone) onDone(); return; }
-        if (!fc)   { if (onDone) onDone(); return; }
-        if (fc.exceededTransferLimit) console.warn('⚠ Record limit hit — will retry');
-        fc.features.forEach(f => {
-          const id = f.properties.PACKEDPIN || f.properties.PIN;
-          if (id) featureCache.set(id, f);
-        });
-        if (onDone) onDone();
-      });
-  }
-
-  // After any fetch, retry visible unfetched cells (up to 3 attempts each, 4 s apart).
-  function _scheduleRetryIfNeeded() {
-    clearTimeout(retryTimer);
-    retryTimer = setTimeout(() => {
-      if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
-      const vis = _cellsForBounds(map.getBounds().pad(0.3));
-      const toRetry = vis.filter(({ r, c }) => {
-        const k = _cellKey(r, c);
-        return !fetchedCells.has(k) && !pendingCells.has(k) && (cellRetryCounts.get(k) || 0) < 3;
-      });
-      if (!toRetry.length) return;
-      toRetry.forEach(({ r, c }) => {
-        const k = _cellKey(r, c);
-        cellRetryCounts.set(k, (cellRetryCounts.get(k) || 0) + 1);
-      });
-      _fetchCells(toRetry, _bboxForCells(toRetry), () => { scheduleRender(); _scheduleRetryIfNeeded(); });
-    }, 4000);
-  }
-
-  // Prefetch only the 4 cardinal neighbours as one batched request, at idle priority.
-  function _prefetchAdjacent(visibleCells) {
-    if (!parcelsEnabled) return;
-    const vis = new Set(visibleCells.map(({ r, c }) => _cellKey(r, c)));
-    const adj = [];
-    visibleCells.forEach(({ r, c }) => {
-      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr, nc]) => {
-        const k = _cellKey(nr, nc);
-        if (!vis.has(k) && !fetchedCells.has(k) && !pendingCells.has(k)) { vis.add(k); adj.push({ r: nr, c: nc }); }
-      });
-    });
-    if (!adj.length) return;
-    requestIdleCallback(() => _fetchCells(adj, _bboxForCells(adj), null), { timeout: 10000 });
-  }
-
   // ── Parcel layers ─────────────────────────────────────────────────
-  let parcelsEnabled   = false;
-  let parcelBoundary   = null;
-  let parcelGroupLayer = null;
-  let parcelLoadTimer  = null;
-  let parcelRenderTimer = null;
-  function scheduleRender() {
-    clearTimeout(parcelRenderTimer);
-    parcelRenderTimer = setTimeout(renderParcels, 120);
-  }
+  let parcelsEnabled      = false;
+  let parcelBoundary      = null;
+  let parcelGroupLayer    = null;
+  let parcelLoadTimer     = null;
+  let parcelFetchPending  = false;  // true while an ArcGIS request is in-flight
+  let lastFetchedBounds   = null;   // bounds of the last successful fetch
   let parcelGroups     = [];
   let featureLayerMap  = new Map(); // PIN → leaflet layer
   let multiGroupPins   = new Set(); // PINs belonging to multi-parcel owners
@@ -1363,21 +1289,55 @@
 
   function loadParcels() {
     if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
-    const queryBounds  = map.getBounds().pad(0.3);
-    const visibleCells = _cellsForBounds(queryBounds);
-    updateUnloadedMask();
-    const allCached = visibleCells.every(({ r, c }) => fetchedCells.has(_cellKey(r, c)));
-    if (allCached) {
-      scheduleRender();
-      _prefetchAdjacent(visibleCells);
+    const queryBounds = map.getBounds().pad(0.3);
+
+    // Already have data covering this view — just render from cache.
+    if (!parcelFetchPending && lastFetchedBounds && lastFetchedBounds.contains(queryBounds)) {
+      renderParcels();
       return;
     }
-    // Pass the real viewport bounds — same query the original code used, proven reliable.
-    _fetchCells(visibleCells, queryBounds, () => {
-      scheduleRender();
-      _prefetchAdjacent(visibleCells);
-      _scheduleRetryIfNeeded();
-    });
+
+    // One request at a time. If one is already in-flight the moveend that fired
+    // this call will fire again once the map settles, so nothing is lost.
+    if (parcelFetchPending) return;
+
+    updateUnloadedMask();
+    parcelFetchPending = true;
+    if (featureCache.size > 3000) { featureCache.clear(); fetchedCells.clear(); lastFetchedBounds = null; updateUnloadedMask(); }
+
+    L.esri.query({ url: PARCELS_URL })
+      .within(queryBounds)
+      .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
+      .run((error, fc) => {
+        parcelFetchPending = false;
+        if (error || !fc) {
+          console.error('Parcel query error:', error);
+          scheduleParcelLoad(); // retry
+          return;
+        }
+        if (fc.exceededTransferLimit) {
+          console.warn('⚠ Record limit hit — retrying');
+          scheduleParcelLoad();
+        } else {
+          // Mark cells covered by this query as fetched (clears hatch)
+          lastFetchedBounds = queryBounds;
+          _cellsForBounds(queryBounds).forEach(({ r, c }) => {
+            const k = _cellKey(r, c);
+            fetchedCells.add(k);
+            const rect = unloadedCellLayers.get(k);
+            if (rect) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(k); }
+          });
+        }
+        fc.features.forEach(f => {
+          const id = f.properties.PACKEDPIN || f.properties.PIN;
+          if (id) featureCache.set(id, f);
+        });
+        renderParcels();
+        // If the user panned while this request was in-flight, fetch the new area.
+        if (!lastFetchedBounds || !lastFetchedBounds.contains(map.getBounds().pad(0.3))) {
+          scheduleParcelLoad();
+        }
+      });
   }
 
   // Pending geometry/label for the habitat analyze button
@@ -2014,7 +1974,8 @@
       unloadedGroup.clearLayers();
       unloadedCellLayers.clear();
       map.removeLayer(unloadedGroup);
-      clearTimeout(retryTimer);
+      parcelFetchPending = false;
+      lastFetchedBounds  = null;
       showZoomHint(false);
       clearMultiSelection();
       selectMode = false;
