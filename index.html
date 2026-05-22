@@ -1168,14 +1168,16 @@
   const cellRetryCounts = new Map(); // cellKey → failed attempt count
   let   retryTimer      = null;
 
-  // One batched ArcGIS query for all unfetched cells — minimises round-trips to the county server.
-  function _fetchCells(cells, onDone) {
+  // Query `bounds` and mark `cells` as fetched on success.
+  // Separating the query bounds from the cell list lets loadParcels use the real
+  // viewport bbox (same as the original code) while still tracking cells for the hatch mask.
+  function _fetchCells(cells, bounds, onDone) {
     const toFetch = cells.filter(({ r, c }) => !fetchedCells.has(_cellKey(r, c)) && !pendingCells.has(_cellKey(r, c)));
     if (!toFetch.length) { if (onDone) onDone(); return; }
     if (featureCache.size > 5000) { featureCache.clear(); fetchedCells.clear(); cellRetryCounts.clear(); updateUnloadedMask(); }
     toFetch.forEach(({ r, c }) => pendingCells.add(_cellKey(r, c)));
     L.esri.query({ url: PARCELS_URL })
-      .within(_bboxForCells(toFetch))
+      .within(bounds)
       .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
       .run((error, fc) => {
         toFetch.forEach(({ r, c }) => {
@@ -1214,7 +1216,7 @@
         const k = _cellKey(r, c);
         cellRetryCounts.set(k, (cellRetryCounts.get(k) || 0) + 1);
       });
-      _fetchCells(toRetry, () => { scheduleRender(); _scheduleRetryIfNeeded(); });
+      _fetchCells(toRetry, _bboxForCells(toRetry), () => { scheduleRender(); _scheduleRetryIfNeeded(); });
     }, 4000);
   }
 
@@ -1230,7 +1232,7 @@
       });
     });
     if (!adj.length) return;
-    requestIdleCallback(() => _fetchCells(adj, null), { timeout: 10000 });
+    requestIdleCallback(() => _fetchCells(adj, _bboxForCells(adj), null), { timeout: 10000 });
   }
 
   // ── Parcel layers ─────────────────────────────────────────────────
@@ -1361,7 +1363,8 @@
 
   function loadParcels() {
     if (!parcelsEnabled || map.getZoom() < MIN_ZOOM) return;
-    const visibleCells = _cellsForBounds(map.getBounds().pad(0.3));
+    const queryBounds  = map.getBounds().pad(0.3);
+    const visibleCells = _cellsForBounds(queryBounds);
     updateUnloadedMask();
     const allCached = visibleCells.every(({ r, c }) => fetchedCells.has(_cellKey(r, c)));
     if (allCached) {
@@ -1369,7 +1372,8 @@
       _prefetchAdjacent(visibleCells);
       return;
     }
-    _fetchCells(visibleCells, () => {
+    // Pass the real viewport bounds — same query the original code used, proven reliable.
+    _fetchCells(visibleCells, queryBounds, () => {
       scheduleRender();
       _prefetchAdjacent(visibleCells);
       _scheduleRetryIfNeeded();
