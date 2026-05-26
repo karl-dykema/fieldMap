@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.4</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.5</div>
   </div>
 
   <div class="section">
@@ -1090,6 +1090,10 @@
     return jaro + prefix * 0.1 * (1 - jaro);
   }
 
+  function featureAcres(f) {
+    try { return turf.area(f) * 0.000247105; } catch(e) { return 0; }
+  }
+
   function groupByOwner(features) {
     const names = features.map(f => normalizeOwner(f.properties.OWNER_NAME));
     const parent = names.map((_, i) => i);
@@ -1353,10 +1357,10 @@
     // Capture geometry for habitat analysis — union the group if multi-parcel
     pendingAnalysisGeom  = feature.geometry;
     pendingAnalysisLabel = p.OWNER_NAME || '—';
-    pendingAnalysisAcres = parseFloat(p.CALC_ACRE) || 0;
+    pendingAnalysisAcres = featureAcres(feature);
 
     if (group && group.features.length > 1) {
-      const totalAcres    = group.features.reduce((s, f) => s + (parseFloat(f.properties.CALC_ACRE) || 0), 0);
+      const totalAcres    = group.features.reduce((s, f) => s + featureAcres(f), 0);
       const totalSEV      = group.features.reduce((s, f) => s + (parseInt(f.properties.ASSESSED)   || 0), 0);
       const totalTaxable  = group.features.reduce((s, f) => s + (parseInt(f.properties.TAXABLE)    || 0), 0);
       pendingAnalysisLabel = group.canonicalName;
@@ -1376,7 +1380,7 @@
       html += `<div class="popup-title">${p.OWNER_NAME || '—'}</div>`;
     }
 
-    if (p.CALC_ACRE)  html += `<div class="popup-row">Acreage: <span>${parseFloat(p.CALC_ACRE).toFixed(2)} ac</span></div>`;
+    html += `<div class="popup-row">Acreage: <span>${featureAcres(feature).toFixed(2)} ac</span></div>`;
     if (p.P_ADDRESS) {
       const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.P_ADDRESS + ', Michigan')}`;
       html += `<div class="popup-row">Property address: <span>${p.P_ADDRESS} <a href="${mapsUrl}" target="_blank" rel="noopener" class="popup-maps-link">↗ Maps</a></span></div>`;
@@ -1688,7 +1692,7 @@
       label: 'School Forest', navLabel: 'School Forests',
       fill: '#7b5e9e', border: '#5a4070',
       url: PARCELS_URL,
-      where: "(UPPER(OWNER_NAME) LIKE '%SCH DIST%' OR UPPER(OWNER_NAME) LIKE '%PUBLIC SCHOOL%' OR UPPER(OWNER_NAME) LIKE '%SCHOOL DIST%') AND CALC_ACRE > 20",
+      where: "(UPPER(OWNER_NAME) LIKE '%SCH DIST%' OR UPPER(OWNER_NAME) LIKE '%PUBLIC SCHOOL%' OR UPPER(OWNER_NAME) LIKE '%SCHOOL DIST%') AND CALC_ACRE > 1",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     govt: {
@@ -1818,7 +1822,7 @@
           const p = feature.properties;
           const cfg = PL_CFG[p._cat] || {};
           const name = (cfg.nameOverrides && cfg.nameOverrides[p.PIN]) || p[cfg.nameField] || '—';
-          const acres = parseFloat(p[cfg.acreField]);
+          const acres = featureAcres(feature);
           let html = `<div class="popup-title">${name}</div>`;
           if (cfg.subField && p[cfg.subField]) html += `<div class="popup-row">Parcel: <span>${p[cfg.subField]}</span></div>`;
           if (acres) html += `<div class="popup-row">Acreage: <span>${acres.toFixed(1)} ac</span></div>`;
@@ -1899,7 +1903,7 @@
     const cfg = PL_CFG[browseCat] || {};
     const p = f.properties;
     const name = (cfg.nameOverrides && cfg.nameOverrides[p.PIN]) || p[cfg.nameField] || '—';
-    const acres = parseFloat(p[cfg.acreField]);
+    const acres = featureAcres(f);
 
     document.getElementById('browse-counter').textContent = `${idx + 1} / ${browseList.length}`;
     document.getElementById('browse-info').innerHTML =
@@ -2150,7 +2154,7 @@
       try { geom = features.reduce((a, f) => turf.union(a, f)).geometry; }
       catch(e) { /* fall back to first parcel */ }
     }
-    const totalAcres = features.reduce((s, f) => s + (parseFloat(f.properties.CALC_ACRE) || 0), 0);
+    const totalAcres = features.reduce((s, f) => s + featureAcres(f), 0);
     const label = features.length === 1
       ? (features[0].properties.OWNER_NAME || '—')
       : `${features.length} selected parcels`;
