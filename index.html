@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.10</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.11</div>
   </div>
 
   <div class="section">
@@ -712,7 +712,10 @@
       <input type="radio" name="base" value="osm" checked> OpenStreetMap
     </label>
     <label class="radio-item">
-      <input type="radio" name="base" value="satellite"> Satellite
+      <input type="radio" name="base" value="satellite"> ESRI World Imagery
+    </label>
+    <label class="radio-item">
+      <input type="radio" name="base" value="naip"> NAIP (USDA)
     </label>
     <label class="radio-item">
       <input type="radio" name="base" value="topo"> Topo
@@ -1078,6 +1081,10 @@
       attribution: 'Tiles © Esri, Maxar, Earthstar Geographics',
       maxZoom: 19
     }),
+    naip: L.tileLayer('https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}', {
+      attribution: 'NAIP imagery © USDA FSA',
+      maxZoom: 17
+    }),
     topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles © Esri',
       maxZoom: 19
@@ -1098,17 +1105,90 @@
     history.replaceState(null, '', `#${c.lat.toFixed(5)},${c.lng.toFixed(5)},${map.getZoom()}z`);
     if (parcelsEnabled && map.getZoom() >= MIN_ZOOM) updateUnloadedMask();
     scheduleParcelLoad();
+    updateImageryDates();
   });
 
   // ── Base layer switching ──────────────────────────────────────────
-  let currentBase = baseLayers.osm;
+  let currentBase    = baseLayers.osm;
+  let currentBaseKey = 'osm';
+
+  // Bottom-right imagery date badge
+  const imageryDateCtrl = L.control({ position: 'bottomright' });
+  imageryDateCtrl.onAdd = function() {
+    this._div = L.DomUtil.create('div', 'imagery-date-badge');
+    this._div.style.cssText =
+      'background:rgba(0,0,0,0.55);color:#fff;padding:3px 8px;font-size:11px;' +
+      'border-radius:3px;display:none;font-family:sans-serif;pointer-events:none';
+    return this._div;
+  };
+  imageryDateCtrl.addTo(map);
+
+  let _imageryDateTimer = null;
+  async function updateImageryDates() {
+    clearTimeout(_imageryDateTimer);
+    _imageryDateTimer = setTimeout(async () => {
+      const badge = imageryDateCtrl._div;
+      const b = map.getBounds();
+
+      if (currentBaseKey === 'satellite') {
+        try {
+          const geom = encodeURIComponent(JSON.stringify({
+            xmin: b.getWest(), ymin: b.getSouth(),
+            xmax: b.getEast(), ymax: b.getNorth(),
+            spatialReference: { wkid: 4326 }
+          }));
+          const url = 'https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/4/query' +
+            `?where=1%3D1&geometry=${geom}&geometryType=esriGeometryEnvelope&inSR=4326` +
+            '&outFields=SRC_DATE&returnGeometry=false&f=json';
+          const data = await fetch(url).then(r => r.json());
+          const dates = (data.features || [])
+            .map(f => f.attributes.SRC_DATE).filter(Boolean).sort();
+          if (dates.length) {
+            const minY = String(dates[0]).slice(0, 4);
+            const maxY = String(dates[dates.length - 1]).slice(0, 4);
+            badge.textContent = minY === maxY ? `Imagery: ${minY}` : `Imagery: ${minY}–${maxY}`;
+            badge.style.display = '';
+          } else {
+            badge.style.display = 'none';
+          }
+        } catch { badge.style.display = 'none'; }
+
+      } else if (currentBaseKey === 'naip') {
+        try {
+          const c = map.getCenter();
+          const url = 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/identify' +
+            `?geometry=${c.lng.toFixed(5)},${c.lat.toFixed(5)}&geometryType=esriGeometryPoint` +
+            '&returnCatalogItems=true&returnGeometry=false&f=json';
+          const data = await fetch(url).then(r => r.json());
+          const items = data.catalogItems?.features || [];
+          const years = [...new Set(items.map(f => {
+            const d = f.attributes?.AcquisitionDate || f.attributes?.QQDATE || '';
+            return d ? String(d).slice(0, 4) : null;
+          }).filter(Boolean))].sort();
+          badge.textContent = years.length
+            ? (years.length === 1 ? `NAIP ${years[0]}` : `NAIP ${years[0]}–${years[years.length - 1]}`)
+            : 'NAIP imagery';
+          badge.style.display = '';
+        } catch {
+          badge.textContent = 'NAIP imagery';
+          badge.style.display = '';
+        }
+
+      } else {
+        badge.style.display = 'none';
+      }
+    }, 600);
+  }
+
   document.querySelectorAll('input[name="base"]').forEach(radio => {
     radio.addEventListener('change', e => {
       map.removeLayer(currentBase);
-      currentBase = baseLayers[e.target.value];
+      currentBaseKey = e.target.value;
+      currentBase    = baseLayers[currentBaseKey];
       map.addLayer(currentBase);
       document.querySelectorAll('.radio-item').forEach(el => el.classList.remove('active'));
       e.target.closest('.radio-item').classList.add('active');
+      updateImageryDates();
     });
   });
 
@@ -2981,7 +3061,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.10'),
+          Version:      PDFString.of('2.11'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
