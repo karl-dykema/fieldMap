@@ -1598,45 +1598,85 @@
   });
 
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
-  // research-grade only; color param tints the point dots.
-  // Note: iNat renders sparse observations as hollow rings (single sightings),
-  // dense/aggregated clusters as filled dots — both are normal tile behavior.
-  const INAT_TILE = 'https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png';
-  const inatOpts  = { opacity: 0.9, maxZoom: 20, attribution: '© iNaturalist contributors (CC BY-NC)' };
-  const inatSpec  = [
-    // [checkboxId, taxonId, hexColor (URL-encoded)]
-    ['karner',   484122, '%231a3d8a'],  // Karner Blue Butterfly
-    ['dusted',    58516, '%235a4a18'],  // Dusted Skipper
-    ['ambb',      56887, '%237a6000'],  // American Bumble Bee
-    ['rhwo',      18204, '%23a01818'],  // Red-headed Woodpecker
-    ['wpwl',     199837, '%233d2a10'],  // Eastern Whip-poor-will
-    ['nighthawk', 19577, '%232a3a4a'],  // Common Nighthawk
-    ['prwa',     145249, '%234a4a00'],  // Prairie Warbler
-    ['hognose',   29925, '%23264d18'],  // Eastern Hognose Snake
-    ['blanding',  39885, '%232e3d10'],  // Blanding's Turtle
-    ['boxturt',   39814, '%235a3a08'],  // Eastern Box Turtle
-    ['lupine',    81528, '%233d1470'],  // Wild Lupine
-    ['milkweed',  47912, '%23b03000'],  // Butterfly Milkweed
-    ['crab',      54831, '%23903058'],  // Sweet Crabapple
-    ['goatsrue',  81836, '%23c47a1e'],  // Goat's Rue
-    ['puccoon',      48595, '%23d4a017'],  // Hoary Puccoon
-    ['bfviolet',     82536, '%236a3d9a'],  // Bird's-foot Violet
-    ['prcoreopsis', 130373, '%23e8c000'],  // Prairie Coreopsis
-    ['roughliatris',130380, '%238b1a6b'],  // Rough Blazing Star
-    ['cyliatris',   164685, '%23b5006e'],  // Cylindrical Blazing Star
-    ['whorledmilk', 125379, '%23e8e8e8'],  // Whorled Milkweed
-    ['bergamot',     85320, '%23c060c0'],  // Wild Bergamot
-    ['bes',          62741, '%23d4820a'],  // Black-eyed Susan
-    ['bushclover',  125186, '%237a5c00'],  // Round-headed Bush Clover
-    ['penstemon',   166381, '%234a6fa5'],  // Hairy Beardtongue
+  // Fetches research-grade observations from the iNat API and renders as
+  // interactive circle markers with hover tooltips showing species name,
+  // observer, and date. Refreshes on map moveend for active layers.
+  const inatSpec = [
+    // [key, taxonId, hexColor, displayName]
+    ['karner',      484122, '#1a3d8a', 'Karner Blue Butterfly'],
+    ['dusted',       58516, '#5a4a18', 'Dusted Skipper'],
+    ['ambb',         56887, '#7a6000', 'American Bumble Bee'],
+    ['rhwo',         18204, '#a01818', 'Red-headed Woodpecker'],
+    ['wpwl',        199837, '#3d2a10', 'Eastern Whip-poor-will'],
+    ['nighthawk',    19577, '#2a3a4a', 'Common Nighthawk'],
+    ['prwa',        145249, '#4a4a00', 'Prairie Warbler'],
+    ['hognose',      29925, '#264d18', 'Eastern Hognose Snake'],
+    ['blanding',     39885, '#2e3d10', "Blanding's Turtle"],
+    ['boxturt',      39814, '#5a3a08', 'Eastern Box Turtle'],
+    ['lupine',       81528, '#3d1470', 'Wild Lupine'],
+    ['milkweed',     47912, '#b03000', 'Butterfly Milkweed'],
+    ['crab',         54831, '#903058', 'Sweet Crabapple'],
+    ['goatsrue',     81836, '#c47a1e', "Goat's Rue"],
+    ['puccoon',      48595, '#d4a017', 'Hoary Puccoon'],
+    ['bfviolet',     82536, '#6a3d9a', "Bird's-foot Violet"],
+    ['prcoreopsis', 130373, '#e8c000', 'Prairie Coreopsis'],
+    ['roughliatris',130380, '#8b1a6b', 'Rough Blazing Star'],
+    ['cyliatris',   164685, '#b5006e', 'Cylindrical Blazing Star'],
+    ['whorledmilk', 125379, '#888888', 'Whorled Milkweed'],
+    ['bergamot',     85320, '#c060c0', 'Wild Bergamot'],
+    ['bes',          62741, '#d4820a', 'Black-eyed Susan'],
+    ['bushclover',  125186, '#7a5c00', 'Round-headed Bush Clover'],
+    ['penstemon',   166381, '#4a6fa5', 'Hairy Beardtongue'],
   ];
+
   const inatLayers = {};
-  inatSpec.forEach(([key, taxonId, color]) => {
-    inatLayers[key] = L.tileLayer(
-      `${INAT_TILE}?taxon_id=${taxonId}&quality_grade=research&color=${color}`, inatOpts
-    );
+  const inatActive = new Set();
+
+  async function loadInatLayer(key, taxonId, color, name) {
+    if (inatLayers[key]) map.removeLayer(inatLayers[key]);
+    const b = map.getBounds();
+    const url = `https://api.inaturalist.org/v1/observations?taxon_id=${taxonId}&quality_grade=research&geo=true&per_page=200` +
+      `&swlat=${b.getSouth().toFixed(5)}&swlng=${b.getWest().toFixed(5)}` +
+      `&nelat=${b.getNorth().toFixed(5)}&nelng=${b.getEast().toFixed(5)}`;
+    try {
+      const data = await fetch(url).then(r => r.json());
+      const group = L.layerGroup();
+      (data.results || []).forEach(obs => {
+        if (!obs.location) return;
+        const [lat, lng] = obs.location.split(',').map(Number);
+        const date = obs.observed_on || '';
+        const observer = obs.user?.login || '';
+        L.circleMarker([lat, lng], {
+          radius: 7, color: '#fff', weight: 1.5,
+          fillColor: color, fillOpacity: 0.85
+        })
+          .bindTooltip(`<b>${name}</b>${observer ? '<br>' + observer : ''}${date ? '<br>' + date : ''}`,
+            { sticky: true, opacity: 0.95 })
+          .addTo(group);
+      });
+      inatLayers[key] = group;
+      if (inatActive.has(key)) group.addTo(map);
+    } catch (err) {
+      console.warn('iNat fetch failed for', key, err);
+    }
+  }
+
+  inatSpec.forEach(([key, taxonId, color, name]) => {
     document.getElementById(`chk-inat-${key}`).addEventListener('change', e => {
-      e.target.checked ? inatLayers[key].addTo(map) : map.removeLayer(inatLayers[key]);
+      if (e.target.checked) {
+        inatActive.add(key);
+        loadInatLayer(key, taxonId, color, name);
+      } else {
+        inatActive.delete(key);
+        if (inatLayers[key]) map.removeLayer(inatLayers[key]);
+      }
+    });
+  });
+
+  map.on('moveend', () => {
+    inatActive.forEach(key => {
+      const [, taxonId, color, name] = inatSpec.find(s => s[0] === key);
+      loadInatLayer(key, taxonId, color, name);
     });
   });
 
