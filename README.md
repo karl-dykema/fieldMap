@@ -1,4 +1,4 @@
-# Newaygo Field Map · v2.4
+# Newaygo Field Map · v2.10
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
@@ -56,7 +56,9 @@ Collapsible panel for stepping through public land parcels one by one. Choose a 
 - **Electric Service Areas** — Michigan utility territory boundaries (Consumers Energy, Great Lakes Energy Co-op)
 
 ### Species — iNaturalist (SWAP)
-Research-grade observations from iNaturalist, grouped by taxon. Each species is a separate toggleable tile layer. Collapsible panel. All listed species are Michigan Species of Greatest Conservation Need (SWAP) unless noted.
+Research-grade observations from iNaturalist, grouped by taxon. Each species is a separate toggleable layer. Collapsible panel. All listed species are Michigan Species of Greatest Conservation Need (SWAP) unless noted.
+
+Observations are fetched as interactive circle markers from the iNaturalist API. Hover any dot for species name, observer, and date. On first toggle, a bounding box 3× the current viewport is fetched and cached per species — panning within the cached area uses no additional API calls. Re-fetches only when the viewport moves outside the cached box.
 
 | Species | Group | SWAP |
 |---|---|---|
@@ -73,8 +75,19 @@ Research-grade observations from iNaturalist, grouped by taxon. Each species is 
 | Wild Lupine | Plants | — |
 | Butterfly Milkweed | Plants | — |
 | Sweet Crabapple | Plants | — |
+| Goat's Rue | Plants | — |
+| Hoary Puccoon | Plants | — |
+| Bird's-foot Violet | Seed Collection | — |
+| Prairie Coreopsis | Seed Collection | — |
+| Rough Blazing Star | Seed Collection | — |
+| Cylindrical Blazing Star | Seed Collection | — |
+| Whorled Milkweed | Seed Collection | — |
+| Wild Bergamot | Seed Collection | — |
+| Black-eyed Susan | Seed Collection | — |
+| Round-headed Bush Clover | Seed Collection | — |
+| Hairy Beardtongue | Seed Collection | — |
 
-Tile source: `https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png?taxon_id={id}&quality_grade=research`
+API source: `https://api.inaturalist.org/v1/observations?taxon_id={id}&quality_grade=research&geo=true`
 
 ### Dynamic Legend
 Bottom bar shows active layer legend entries — only cover types and reforestation decades currently visible in the viewport. Updates on pan/zoom and layer toggle.
@@ -155,7 +168,7 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 | Wetlands (Part 303) | Michigan EGLE / MCGI | `https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer` |
 | USFS Reforestation (FACTS) | USDA Forest Service EDW | `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8` |
 | Fire Fuel Model (FBFM40) | LANDFIRE 2022 (USFS / DOI) | `https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer` |
-| Species observations | iNaturalist (research grade) | `https://api.inaturalist.org/v1/points/{z}/{x}/{y}.png` |
+| Species observations | iNaturalist (research grade) | `https://api.inaturalist.org/v1/observations` |
 | Electric transmission lines | HIFLD (DHS/Esri) | `https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0` |
 | Electric service areas | Michigan MNFI/MNRI | `https://services1.arcgis.com/4ezfu5dIwH83BUNL/arcgis/rest/services/Electric_Utility_Service_Areas_Michigan/FeatureServer/0` |
 | Base tiles | © OpenStreetMap contributors; Esri, Maxar, Earthstar Geographics | — |
