@@ -58,7 +58,7 @@ Collapsible panel for stepping through public land parcels one by one. Choose a 
 ### Species — iNaturalist (SWAP)
 Research-grade observations from iNaturalist, grouped by taxon. Each species is a separate toggleable layer. Collapsible panel. All listed species are Michigan Species of Greatest Conservation Need (SWAP) unless noted.
 
-Observations are fetched as interactive circle markers from the iNaturalist API. Hover any dot for species name, observer, and date. On first toggle, a bounding box 3× the current viewport is fetched and cached per species — panning within the cached area uses no additional API calls. Re-fetches only when the viewport moves outside the cached box.
+Observations are fetched as interactive circle markers from the iNaturalist API. Hover any dot for species name, observer, and date. On first toggle, a bounding box 3× the current viewport is fetched and cached per species — panning within the cached area uses no additional API calls; re-fetches only when the viewport moves outside the cached box.
 
 | Species | Group | SWAP |
 |---|---|---|
@@ -77,15 +77,15 @@ Observations are fetched as interactive circle markers from the iNaturalist API.
 | Sweet Crabapple | Plants | — |
 | Goat's Rue | Plants | — |
 | Hoary Puccoon | Plants | — |
-| Bird's-foot Violet | Seed Collection | — |
-| Prairie Coreopsis | Seed Collection | — |
-| Rough Blazing Star | Seed Collection | — |
-| Cylindrical Blazing Star | Seed Collection | — |
-| Whorled Milkweed | Seed Collection | — |
-| Wild Bergamot | Seed Collection | — |
-| Black-eyed Susan | Seed Collection | — |
-| Round-headed Bush Clover | Seed Collection | — |
-| Hairy Beardtongue | Seed Collection | — |
+| Bird's-foot Violet | Plants | — |
+| Prairie Coreopsis | Plants | — |
+| Rough Blazing Star | Plants | — |
+| Cylindrical Blazing Star | Plants | — |
+| Whorled Milkweed | Plants | — |
+| Wild Bergamot | Plants | — |
+| Black-eyed Susan | Plants | — |
+| Round-headed Bush Clover | Plants | — |
+| Hairy Beardtongue | Plants | — |
 
 API source: `https://api.inaturalist.org/v1/observations?taxon_id={id}&quality_grade=research&geo=true`
 
