@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.11</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.12</div>
   </div>
 
   <div class="section">
@@ -1483,6 +1483,7 @@
   let pendingAnalysisGeom  = null;
   let pendingAnalysisLabel = '';
   let pendingAnalysisAcres = 0;
+  let pendingAnalysisPins  = [];
 
   function showParcelPopup(feature, latlng) {
     const p = feature.properties;
@@ -1493,6 +1494,7 @@
     pendingAnalysisGeom  = feature.geometry;
     pendingAnalysisLabel = p.OWNER_NAME || '—';
     pendingAnalysisAcres = featureAcres(feature);
+    pendingAnalysisPins  = [p.PIN].filter(Boolean);
 
     if (group && group.features.length > 1) {
       const totalAcres    = group.features.reduce((s, f) => s + featureAcres(f), 0);
@@ -1500,6 +1502,7 @@
       const totalTaxable  = group.features.reduce((s, f) => s + (parseInt(f.properties.TAXABLE)    || 0), 0);
       pendingAnalysisLabel = group.canonicalName;
       pendingAnalysisAcres = totalAcres;
+      pendingAnalysisPins  = group.features.map(f => f.properties.PIN).filter(Boolean);
       try {
         const merged = group.features.reduce((a, f) => turf.union(a, f));
         pendingAnalysisGeom = merged.geometry;
@@ -2373,7 +2376,8 @@
     const label = features.length === 1
       ? (features[0].properties.OWNER_NAME || '—')
       : `${features.length} selected parcels`;
-    openHabitatPanel(geom, label, totalAcres);
+    const pins = features.map(f => f.properties.PACKEDPIN || f.properties.PIN).filter(Boolean);
+    openHabitatPanel(geom, label, totalAcres, pins);
   }
 
   document.getElementById('btn-select-mode').addEventListener('click', () => {
@@ -2425,18 +2429,26 @@
 
   document.addEventListener('click', e => {
     if (e.target && e.target.id === 'btn-analyze-habitat') {
-      openHabitatPanel(pendingAnalysisGeom, pendingAnalysisLabel, pendingAnalysisAcres);
+      openHabitatPanel(pendingAnalysisGeom, pendingAnalysisLabel, pendingAnalysisAcres, pendingAnalysisPins);
     }
   });
 
-  function openHabitatPanel(geom, label, acres) {
+  function openHabitatPanel(geom, label, acres, pins = []) {
     if (!geom) return;
     const gen = ++habGeneration;
 
-    document.getElementById('hab-panel-title').textContent   = label;
+    document.getElementById('hab-panel-title').textContent    = label;
     document.getElementById('hab-panel-subtitle').textContent = `${acres.toFixed(1)} ac`;
 
+    const pinHtml = pins.length
+      ? `<div class="hab-section" id="hab-pins-section">
+           <div class="hab-section-head">PIN${pins.length > 1 ? 's' : ''}</div>
+           ${pins.map(pin => `<div style="font-size:12px;font-family:monospace;padding:2px 0;color:#ccd0e8">${pin}</div>`).join('')}
+         </div>`
+      : '';
+
     document.getElementById('hab-body').innerHTML = `
+      ${pinHtml}
       <div class="hab-section" id="hab-frontage-section">
         <div class="hab-section-head">Road Frontage</div>
         <div class="hab-loading">Querying…</div>
@@ -3061,7 +3073,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.11'),
+          Version:      PDFString.of('2.12'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
