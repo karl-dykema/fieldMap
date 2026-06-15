@@ -1600,7 +1600,9 @@
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
   // Fetches research-grade observations from the iNat API and renders as
   // interactive circle markers with hover tooltips showing species name,
-  // observer, and date. Refreshes on map moveend for active layers.
+  // observer, and date.
+  // Cache strategy: fetch a 3× expanded bounding box and store results.
+  // On moveend, only re-fetch if the viewport has moved outside the cached box.
   const inatSpec = [
     // [key, taxonId, hexColor, displayName]
     ['karner',      484122, '#1a3d8a', 'Karner Blue Butterfly'],
@@ -1631,31 +1633,54 @@
 
   const inatLayers = {};
   const inatActive = new Set();
+  const inatCache  = {}; // key -> { fetchedBounds: L.LatLngBounds, observations: [] }
 
-  async function loadInatLayer(key, taxonId, color, name) {
+  function renderInatMarkers(key, color, name, observations) {
     if (inatLayers[key]) map.removeLayer(inatLayers[key]);
-    const b = map.getBounds();
-    const url = `https://api.inaturalist.org/v1/observations?taxon_id=${taxonId}&quality_grade=research&geo=true&per_page=200` +
-      `&swlat=${b.getSouth().toFixed(5)}&swlng=${b.getWest().toFixed(5)}` +
-      `&nelat=${b.getNorth().toFixed(5)}&nelng=${b.getEast().toFixed(5)}`;
+    const group = L.layerGroup();
+    observations.forEach(obs => {
+      if (!obs.location) return;
+      const [lat, lng] = obs.location.split(',').map(Number);
+      const date     = obs.observed_on || '';
+      const observer = obs.user?.login  || '';
+      L.circleMarker([lat, lng], {
+        radius: 7, color: '#fff', weight: 1.5,
+        fillColor: color, fillOpacity: 0.85
+      })
+        .bindTooltip(
+          `<b>${name}</b>${observer ? '<br>' + observer : ''}${date ? '<br>' + date : ''}`,
+          { sticky: true, opacity: 0.95 }
+        )
+        .addTo(group);
+    });
+    inatLayers[key] = group;
+    if (inatActive.has(key)) group.addTo(map);
+  }
+
+  async function loadInatLayer(key, taxonId, color, name, forceRefresh = false) {
+    const view = map.getBounds();
+
+    // Serve from cache if the viewport is fully inside the previously fetched box
+    if (!forceRefresh && inatCache[key]?.fetchedBounds.contains(view)) {
+      renderInatMarkers(key, color, name, inatCache[key].observations);
+      return;
+    }
+
+    // Expand the fetch box ~3× the current viewport to reduce future re-fetches
+    const latPad = (view.getNorth() - view.getSouth());
+    const lngPad = (view.getEast()  - view.getWest());
+    const fb = L.latLngBounds(
+      [view.getSouth() - latPad, view.getWest() - lngPad],
+      [view.getNorth() + latPad, view.getEast() + lngPad]
+    );
+
+    const url = `https://api.inaturalist.org/v1/observations?taxon_id=${taxonId}&quality_grade=research&geo=true&per_page=500` +
+      `&swlat=${fb.getSouth().toFixed(5)}&swlng=${fb.getWest().toFixed(5)}` +
+      `&nelat=${fb.getNorth().toFixed(5)}&nelng=${fb.getEast().toFixed(5)}`;
     try {
       const data = await fetch(url).then(r => r.json());
-      const group = L.layerGroup();
-      (data.results || []).forEach(obs => {
-        if (!obs.location) return;
-        const [lat, lng] = obs.location.split(',').map(Number);
-        const date = obs.observed_on || '';
-        const observer = obs.user?.login || '';
-        L.circleMarker([lat, lng], {
-          radius: 7, color: '#fff', weight: 1.5,
-          fillColor: color, fillOpacity: 0.85
-        })
-          .bindTooltip(`<b>${name}</b>${observer ? '<br>' + observer : ''}${date ? '<br>' + date : ''}`,
-            { sticky: true, opacity: 0.95 })
-          .addTo(group);
-      });
-      inatLayers[key] = group;
-      if (inatActive.has(key)) group.addTo(map);
+      inatCache[key] = { fetchedBounds: fb, observations: data.results || [] };
+      renderInatMarkers(key, color, name, inatCache[key].observations);
     } catch (err) {
       console.warn('iNat fetch failed for', key, err);
     }
@@ -1674,9 +1699,13 @@
   });
 
   map.on('moveend', () => {
+    const view = map.getBounds();
     inatActive.forEach(key => {
-      const [, taxonId, color, name] = inatSpec.find(s => s[0] === key);
-      loadInatLayer(key, taxonId, color, name);
+      // Only re-fetch if we've panned outside the cached box
+      if (!inatCache[key]?.fetchedBounds.contains(view)) {
+        const [, taxonId, color, name] = inatSpec.find(s => s[0] === key);
+        loadInatLayer(key, taxonId, color, name);
+      }
     });
   });
 
