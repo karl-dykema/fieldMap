@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.18</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.19</div>
   </div>
 
   <div class="section">
@@ -1717,40 +1717,47 @@
 
   // ── USFS Special Interest Areas (RNA, Experimental Forest) ──────
   // Loaded from a committed static GeoJSON (sourced from USFS EDW, 2026-06-17).
-  // Covers Lower Michigan: Newaygo Prairies RNA (3 tracts), Lower Peninsula
-  // Experimental Forest, Udell Experiment Forest, Nordhouse Dunes RNA.
+  // RNA and Exp Forest rendered as separate sub-layers (RNA on top) so that
+  // overlapping areas (RNA is a subset of the Exp Forest admin unit) are clear.
   let usfsSpecialLayer  = null;
   let usfsSpecialFetched = false;
 
   async function ensureUsfsSpecialLayer() {
+    if (usfsSpecialLayer) {
+      if (!map.hasLayer(usfsSpecialLayer)) usfsSpecialLayer.addTo(map);
+      return;
+    }
     if (usfsSpecialFetched) return;
     usfsSpecialFetched = true;
     try {
       const data = await fetch('usfs-special-areas.geojson').then(r => r.json());
-      usfsSpecialLayer = L.geoJSON(data, {
-        style: f => {
-          const isRNA = f.properties?.areatype === 'RESEARCH NATURAL AREA';
-          return {
-            color:       '#b07800',
-            weight:      2,
-            dashArray:   isRNA ? null : '5,4',
-            fillColor:   isRNA ? '#ffe066' : '#f0d080',
-            fillOpacity: 0.35
-          };
-        },
-        onEachFeature(feature, layer) {
-          const p        = feature.properties;
-          const primary  = p.areaname || p.casename || '—';
-          const context  = (p.casename && p.areaname && p.casename !== p.areaname)
-                           ? `<br><span style="font-size:11px;opacity:.8">${p.casename}</span>` : '';
-          const type     = p.areatype  || '—';
-          const acres    = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
-          layer.bindTooltip(
-            `<b>${primary}</b>${context}<br>${type}${acres ? '<br>' + acres : ''}`,
-            { sticky: true, opacity: 0.95 }
-          );
-        }
+
+      function makeTooltip(feature, layer) {
+        const p       = feature.properties;
+        const primary = p.areaname || p.casename || '—';
+        const context = (p.casename && p.areaname && p.casename !== p.areaname)
+                        ? `<br><span style="font-size:11px;opacity:.8">${p.casename}</span>` : '';
+        const type    = p.areatype || '—';
+        const acres   = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
+        layer.bindTooltip(
+          `<b>${primary}</b>${context}<br>${type}${acres ? '<br>' + acres : ''}`,
+          { sticky: true, opacity: 0.95 }
+        );
+      }
+
+      const expLayer = L.geoJSON(data, {
+        filter: f => f.properties?.areatype !== 'RESEARCH NATURAL AREA',
+        style:  { color: '#b07800', weight: 1.5, dashArray: '5,4', fillColor: '#e8c85a', fillOpacity: 0.18 },
+        onEachFeature: makeTooltip
       });
+      const rnaLayer = L.geoJSON(data, {
+        filter: f => f.properties?.areatype === 'RESEARCH NATURAL AREA',
+        style:  { color: '#c8a000', weight: 2, fillColor: '#ffe066', fillOpacity: 0.55 },
+        onEachFeature: makeTooltip
+      });
+
+      // expLayer added first so rnaLayer renders on top where they overlap
+      usfsSpecialLayer = L.layerGroup([expLayer, rnaLayer]);
       if (document.getElementById('chk-usfs-special').checked) usfsSpecialLayer.addTo(map);
     } catch(err) {
       console.warn('USFS special areas load failed:', err);
@@ -3196,7 +3203,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.18'),
+          Version:      PDFString.of('2.19'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
