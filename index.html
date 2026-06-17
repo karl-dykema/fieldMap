@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.19</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.20</div>
   </div>
 
   <div class="section">
@@ -762,12 +762,6 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-wetlands"> Wetlands (Part 303)
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-dragon"> Michigan's Dragon Trail
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-usfs-special"> USFS Special Areas (RNA / Exp. Forest)
     </label>
 
     <label class="check-item">
@@ -1690,6 +1684,10 @@
   let dragonFetched = false;
 
   async function ensureDragonLayer() {
+    if (dragonLayer) {
+      if (!map.hasLayer(dragonLayer)) dragonLayer.addTo(map);
+      return;
+    }
     if (dragonFetched) return;
     dragonFetched = true;
     try {
@@ -1700,20 +1698,12 @@
           layer.bindTooltip(feature.properties.name, { sticky: true, opacity: 0.9 });
         }
       });
-      if (document.getElementById('chk-dragon').checked) dragonLayer.addTo(map);
+      dragonLayer.addTo(map);
     } catch(err) {
       console.warn('Dragon Trail load failed:', err);
       dragonFetched = false;
     }
   }
-
-  document.getElementById('chk-dragon').addEventListener('change', e => {
-    if (e.target.checked) {
-      ensureDragonLayer();
-    } else {
-      if (dragonLayer) map.removeLayer(dragonLayer);
-    }
-  });
 
   // ── USFS Special Interest Areas (RNA, Experimental Forest) ──────
   // Loaded from a committed static GeoJSON (sourced from USFS EDW, 2026-06-17).
@@ -1758,20 +1748,13 @@
 
       // expLayer added first so rnaLayer renders on top where they overlap
       usfsSpecialLayer = L.layerGroup([expLayer, rnaLayer]);
-      if (document.getElementById('chk-usfs-special').checked) usfsSpecialLayer.addTo(map);
+      usfsSpecialLayer.addTo(map);
     } catch(err) {
       console.warn('USFS special areas load failed:', err);
       usfsSpecialFetched = false;
     }
   }
 
-  document.getElementById('chk-usfs-special').addEventListener('change', e => {
-    if (e.target.checked) {
-      ensureUsfsSpecialLayer();
-    } else {
-      if (usfsSpecialLayer) map.removeLayer(usfsSpecialLayer);
-    }
-  });
 
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
   // Fetches research-grade observations from the iNat API and renders as
@@ -2196,9 +2179,13 @@
     if (publicLandsEnabled) {
       loadPublicLands();
       if (map.getZoom() >= PL_MIN_ZOOM) hardcodedSites.addTo(map);
+      ensureDragonLayer();
+      ensureUsfsSpecialLayer();
     } else {
       if (publicLandsLayer) { map.removeLayer(publicLandsLayer); publicLandsLayer = null; }
       map.removeLayer(hardcodedSites);
+      if (dragonLayer) map.removeLayer(dragonLayer);
+      if (usfsSpecialLayer) map.removeLayer(usfsSpecialLayer);
     }
   });
 
@@ -3203,7 +3190,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.19'),
+          Version:      PDFString.of('2.20'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
