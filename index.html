@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.17</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.18</div>
   </div>
 
   <div class="section">
@@ -1739,12 +1739,14 @@
           };
         },
         onEachFeature(feature, layer) {
-          const p     = feature.properties;
-          const name  = p.casename  || p.areaname || '—';
-          const type  = p.areatype  || '—';
-          const acres = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
+          const p        = feature.properties;
+          const primary  = p.areaname || p.casename || '—';
+          const context  = (p.casename && p.areaname && p.casename !== p.areaname)
+                           ? `<br><span style="font-size:11px;opacity:.8">${p.casename}</span>` : '';
+          const type     = p.areatype  || '—';
+          const acres    = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
           layer.bindTooltip(
-            `<b>${name}</b><br>${type}${acres ? '<br>' + acres : ''}`,
+            `<b>${primary}</b>${context}<br>${type}${acres ? '<br>' + acres : ''}`,
             { sticky: true, opacity: 0.95 }
           );
         }
@@ -3194,7 +3196,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.17'),
+          Version:      PDFString.of('2.18'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
