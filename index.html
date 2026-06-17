@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.16</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.17</div>
   </div>
 
   <div class="section">
@@ -1716,28 +1716,52 @@
   });
 
   // ── USFS Special Interest Areas (RNA, Experimental Forest) ──────
-  const USFS_SPECIAL_URL = 'https://apps.fs.usda.gov/ArcX/rest/services/EDW/EDW_SpecialInterestManagementArea_01/MapServer/0';
-  const usfsSpecialLayer = L.esri.featureLayer({
-    url: USFS_SPECIAL_URL,
-    where: "areatype IN ('RESEARCH NATURAL AREA','EXPERIMENTAL FOREST')",
-    style: () => ({ color: '#c8a000', weight: 2, fillColor: '#f5d840', fillOpacity: 0.45 }),
-    onEachFeature(feature, layer) {
-      const p = feature.properties;
-      const name   = p.areaname  || p.casename || '—';
-      const type   = p.areatype  || '—';
-      const acres  = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
-      layer.bindPopup(
-        `<div class="popup-title">${name}</div>
-         <div class="popup-row">Type: <span>${type}</span></div>
-         ${acres ? `<div class="popup-row">Acreage: <span>${acres}</span></div>` : ''}`
-      );
-      layer.bindTooltip(name, { sticky: true, opacity: 0.92 });
-    },
-    attribution: 'USFS EDW Special Interest Management Areas'
-  });
+  // Loaded from a committed static GeoJSON (sourced from USFS EDW, 2026-06-17).
+  // Covers Lower Michigan: Newaygo Prairies RNA (3 tracts), Lower Peninsula
+  // Experimental Forest, Udell Experiment Forest, Nordhouse Dunes RNA.
+  let usfsSpecialLayer  = null;
+  let usfsSpecialFetched = false;
+
+  async function ensureUsfsSpecialLayer() {
+    if (usfsSpecialFetched) return;
+    usfsSpecialFetched = true;
+    try {
+      const data = await fetch('usfs-special-areas.geojson').then(r => r.json());
+      usfsSpecialLayer = L.geoJSON(data, {
+        style: f => {
+          const isRNA = f.properties?.areatype === 'RESEARCH NATURAL AREA';
+          return {
+            color:       '#b07800',
+            weight:      2,
+            dashArray:   isRNA ? null : '5,4',
+            fillColor:   isRNA ? '#ffe066' : '#f0d080',
+            fillOpacity: 0.35
+          };
+        },
+        onEachFeature(feature, layer) {
+          const p     = feature.properties;
+          const name  = p.casename  || p.areaname || '—';
+          const type  = p.areatype  || '—';
+          const acres = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
+          layer.bindTooltip(
+            `<b>${name}</b><br>${type}${acres ? '<br>' + acres : ''}`,
+            { sticky: true, opacity: 0.95 }
+          );
+        }
+      });
+      if (document.getElementById('chk-usfs-special').checked) usfsSpecialLayer.addTo(map);
+    } catch(err) {
+      console.warn('USFS special areas load failed:', err);
+      usfsSpecialFetched = false;
+    }
+  }
 
   document.getElementById('chk-usfs-special').addEventListener('change', e => {
-    e.target.checked ? usfsSpecialLayer.addTo(map) : map.removeLayer(usfsSpecialLayer);
+    if (e.target.checked) {
+      ensureUsfsSpecialLayer();
+    } else {
+      if (usfsSpecialLayer) map.removeLayer(usfsSpecialLayer);
+    }
   });
 
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
@@ -3170,7 +3194,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.16'),
+          Version:      PDFString.of('2.17'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
