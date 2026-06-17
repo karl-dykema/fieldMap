@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.13</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.14</div>
   </div>
 
   <div class="section">
@@ -1683,22 +1683,36 @@
   });
 
   // ── Michigan's Dragon Trail (OpenStreetMap via Overpass) ──────────
-  let dragonLayer = null;
+  let dragonLayer  = null;
   let dragonFetched = false;
 
   async function ensureDragonLayer() {
     if (dragonFetched) return;
     dragonFetched = true;
-    const query = encodeURIComponent(
-      '[out:geojson];way["name"~"Dragon Trail","i"](43.4,-86.2,43.9,-85.3);out geom;'
-    );
+    const query = '[out:json];way["name"~"Dragon Trail","i"](43.4,-86.2,43.9,-85.3);out geom;';
     try {
-      const data = await fetch(`https://overpass-api.de/api/interpreter?data=${query}`).then(r => r.json());
-      dragonLayer = L.geoJSON(data, {
+      const data = await fetch(
+        `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
+      ).then(r => r.json());
+
+      const geojson = {
+        type: 'FeatureCollection',
+        features: (data.elements || [])
+          .filter(el => el.type === 'way' && el.geometry?.length)
+          .map(el => ({
+            type: 'Feature',
+            properties: { name: el.tags?.name || 'Dragon Trail' },
+            geometry: {
+              type: 'LineString',
+              coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
+            }
+          }))
+      };
+
+      dragonLayer = L.geoJSON(geojson, {
         style: { color: '#e06010', weight: 3, opacity: 0.85, dashArray: '6,4' },
         onEachFeature(feature, layer) {
-          const name = feature.properties?.name || 'Dragon Trail';
-          layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
+          layer.bindTooltip(feature.properties.name, { sticky: true, opacity: 0.9 });
         }
       });
       if (document.getElementById('chk-dragon').checked) dragonLayer.addTo(map);
@@ -1710,7 +1724,7 @@
 
   document.getElementById('chk-dragon').addEventListener('change', e => {
     if (e.target.checked) {
-      ensureDragonLayer().then(() => { if (dragonLayer) dragonLayer.addTo(map); });
+      ensureDragonLayer();
     } else {
       if (dragonLayer) map.removeLayer(dragonLayer);
     }
@@ -2106,13 +2120,49 @@
     cats.forEach(cat => fetchPLCat(cat, () => { if (--pending === 0) showPLLayer(); }));
   }
 
+  // Hardcoded non-parcel public sites (no county parcel record exists)
+  const hardcodedSites = L.geoJSON({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { name: 'High Rollaway Roadside Park', owner: 'MDOT', note: 'Approx. boundary — within M-82 ROW' },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [-85.7242, 43.4048],
+            [-85.7178, 43.4048],
+            [-85.7178, 43.4072],
+            [-85.7242, 43.4072],
+            [-85.7242, 43.4048]
+          ]]
+        }
+      }
+    ]
+  }, {
+    style: { color: '#6a6a58', weight: 1.5, fillColor: '#a8a898', fillOpacity: 0.45 },
+    onEachFeature(feature, layer) {
+      const p = feature.properties;
+      layer.bindTooltip(`<b>${p.name}</b><br>${p.owner}<br><i>${p.note}</i>`,
+        { sticky: true, opacity: 0.95 });
+    }
+  });
+
   document.getElementById('chk-public-lands').addEventListener('change', e => {
     publicLandsEnabled = e.target.checked;
     if (publicLandsEnabled) {
       loadPublicLands();
+      if (map.getZoom() >= PL_MIN_ZOOM) hardcodedSites.addTo(map);
     } else {
       if (publicLandsLayer) { map.removeLayer(publicLandsLayer); publicLandsLayer = null; }
+      map.removeLayer(hardcodedSites);
     }
+  });
+
+  map.on('zoomend', () => {
+    if (!publicLandsEnabled) return;
+    if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(hardcodedSites);
+    else if (!map.hasLayer(hardcodedSites)) hardcodedSites.addTo(map);
   });
 
 
@@ -3110,7 +3160,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.13'),
+          Version:      PDFString.of('2.14'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
