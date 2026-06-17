@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.14</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.15</div>
   </div>
 
   <div class="section">
@@ -1682,33 +1682,15 @@
     e.target.checked ? wetlandsLayer.addTo(map) : map.removeLayer(wetlandsLayer);
   });
 
-  // ── Michigan's Dragon Trail (OpenStreetMap via Overpass) ──────────
-  let dragonLayer  = null;
+  // ── Michigan's Dragon Trail (static GeoJSON, sourced from OSM) ───
+  let dragonLayer   = null;
   let dragonFetched = false;
 
   async function ensureDragonLayer() {
     if (dragonFetched) return;
     dragonFetched = true;
-    const query = '[out:json];way["name"~"Dragon Trail","i"](43.4,-86.2,43.9,-85.3);out geom;';
     try {
-      const data = await fetch(
-        `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
-      ).then(r => r.json());
-
-      const geojson = {
-        type: 'FeatureCollection',
-        features: (data.elements || [])
-          .filter(el => el.type === 'way' && el.geometry?.length)
-          .map(el => ({
-            type: 'Feature',
-            properties: { name: el.tags?.name || 'Dragon Trail' },
-            geometry: {
-              type: 'LineString',
-              coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
-            }
-          }))
-      };
-
+      const geojson = await fetch('dragon-trail.geojson').then(r => r.json());
       dragonLayer = L.geoJSON(geojson, {
         style: { color: '#e06010', weight: 3, opacity: 0.85, dashArray: '6,4' },
         onEachFeature(feature, layer) {
@@ -1717,7 +1699,7 @@
       });
       if (document.getElementById('chk-dragon').checked) dragonLayer.addTo(map);
     } catch(err) {
-      console.warn('Dragon Trail fetch failed:', err);
+      console.warn('Dragon Trail load failed:', err);
       dragonFetched = false;
     }
   }
@@ -2130,11 +2112,11 @@
         geometry: {
           type: 'Polygon',
           coordinates: [[
-            [-85.7242, 43.4048],
-            [-85.7178, 43.4048],
-            [-85.7178, 43.4072],
-            [-85.7242, 43.4072],
-            [-85.7242, 43.4048]
+            [-85.72249942691259, 43.405113577029866],
+            [-85.7226841538039,  43.406688287494035],
+            [-85.71902574138329, 43.40643750998767],
+            [-85.7186414453224,  43.4053785537773],
+            [-85.72249942691259, 43.405113577029866]
           ]]
         }
       }
@@ -3160,7 +3142,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.14'),
+          Version:      PDFString.of('2.15'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
