@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.15</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.16</div>
   </div>
 
   <div class="section">
@@ -765,6 +765,9 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-dragon"> Michigan's Dragon Trail
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-usfs-special"> USFS Special Areas (RNA / Exp. Forest)
     </label>
 
     <label class="check-item">
@@ -1710,6 +1713,31 @@
     } else {
       if (dragonLayer) map.removeLayer(dragonLayer);
     }
+  });
+
+  // ── USFS Special Interest Areas (RNA, Experimental Forest) ──────
+  const USFS_SPECIAL_URL = 'https://apps.fs.usda.gov/ArcX/rest/services/EDW/EDW_SpecialInterestManagementArea_01/MapServer/0';
+  const usfsSpecialLayer = L.esri.featureLayer({
+    url: USFS_SPECIAL_URL,
+    where: "areatype IN ('RESEARCH NATURAL AREA','EXPERIMENTAL FOREST')",
+    style: () => ({ color: '#c8a000', weight: 2, fillColor: '#f5d840', fillOpacity: 0.45 }),
+    onEachFeature(feature, layer) {
+      const p = feature.properties;
+      const name   = p.areaname  || p.casename || '—';
+      const type   = p.areatype  || '—';
+      const acres  = p.officialacres ? `${parseFloat(p.officialacres).toFixed(0)} ac` : '';
+      layer.bindPopup(
+        `<div class="popup-title">${name}</div>
+         <div class="popup-row">Type: <span>${type}</span></div>
+         ${acres ? `<div class="popup-row">Acreage: <span>${acres}</span></div>` : ''}`
+      );
+      layer.bindTooltip(name, { sticky: true, opacity: 0.92 });
+    },
+    attribution: 'USFS EDW Special Interest Management Areas'
+  });
+
+  document.getElementById('chk-usfs-special').addEventListener('change', e => {
+    e.target.checked ? usfsSpecialLayer.addTo(map) : map.removeLayer(usfsSpecialLayer);
   });
 
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
@@ -3142,7 +3170,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.15'),
+          Version:      PDFString.of('2.16'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
