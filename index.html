@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.12</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.13</div>
   </div>
 
   <div class="section">
@@ -762,6 +762,9 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-wetlands"> Wetlands (Part 303)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-dragon"> Michigan's Dragon Trail
     </label>
 
     <label class="check-item">
@@ -1679,6 +1682,40 @@
     e.target.checked ? wetlandsLayer.addTo(map) : map.removeLayer(wetlandsLayer);
   });
 
+  // ── Michigan's Dragon Trail (OpenStreetMap via Overpass) ──────────
+  let dragonLayer = null;
+  let dragonFetched = false;
+
+  async function ensureDragonLayer() {
+    if (dragonFetched) return;
+    dragonFetched = true;
+    const query = encodeURIComponent(
+      '[out:geojson];way["name"~"Dragon Trail","i"](43.4,-86.2,43.9,-85.3);out geom;'
+    );
+    try {
+      const data = await fetch(`https://overpass-api.de/api/interpreter?data=${query}`).then(r => r.json());
+      dragonLayer = L.geoJSON(data, {
+        style: { color: '#e06010', weight: 3, opacity: 0.85, dashArray: '6,4' },
+        onEachFeature(feature, layer) {
+          const name = feature.properties?.name || 'Dragon Trail';
+          layer.bindTooltip(name, { sticky: true, opacity: 0.9 });
+        }
+      });
+      if (document.getElementById('chk-dragon').checked) dragonLayer.addTo(map);
+    } catch(err) {
+      console.warn('Dragon Trail fetch failed:', err);
+      dragonFetched = false;
+    }
+  }
+
+  document.getElementById('chk-dragon').addEventListener('change', e => {
+    if (e.target.checked) {
+      ensureDragonLayer().then(() => { if (dragonLayer) dragonLayer.addTo(map); });
+    } else {
+      if (dragonLayer) map.removeLayer(dragonLayer);
+    }
+  });
+
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
   // Fetches research-grade observations from the iNat API and renders as
   // interactive circle markers with hover tooltips showing species name,
@@ -1988,7 +2025,7 @@
       label: 'Road / MDOT', navLabel: 'Road / MDOT',
       fill: '#a8a898', border: '#6a6a58',
       url: PARCELS_URL,
-      where: "UPPER(OWNER_NAME) LIKE '%ROAD COMM%' OR UPPER(OWNER_NAME) LIKE '%MDOT%' OR UPPER(OWNER_NAME) LIKE '%MICH DEPT OF TRANS%'",
+      where: "UPPER(OWNER_NAME) LIKE '%ROAD COMM%' OR UPPER(OWNER_NAME) LIKE '%MDOT%' OR UPPER(OWNER_NAME) LIKE '%MICH DEPT OF TRANS%' OR UPPER(OWNER_NAME) LIKE '%STATE-DEPT OF TRANSP%' OR UPPER(OWNER_NAME) LIKE '%BOARD OF COUNTY ROAD%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     known: {
@@ -3073,7 +3110,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.12'),
+          Version:      PDFString.of('2.13'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
