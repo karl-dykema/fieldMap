@@ -1848,13 +1848,13 @@
       onEachFeature(feature, layer) {
         const p = feature.properties;
         const yr      = p.year_of_origin || '—';
-        const species = p.ev_name || '—';
+        const coverType = p.ev_name || '—';
         const ba      = p.basal_area != null ? `${p.basal_area} ft²/ac` : '—';
         const dbh     = p.dbh != null ? `${p.dbh}" QMD` : '—';
         const ac      = p.acres != null ? `${parseFloat(p.acres).toFixed(1)} ac` : '';
         const sampleYr = p.sample_date ? new Date(p.sample_date).getFullYear() : '?';
         layer.bindTooltip(
-          `<b>${species}</b><br>Origin: ${yr}${ac ? ' · ' + ac : ''}<br>BA: ${ba} · DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">Survey ${sampleYr} · LOC ${p.location}</span>`,
+          `<b>USFS Stand</b> · ${ac}<br>Cover type: ${coverType}<br>Origin: ${yr} · BA: ${ba}<br>DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">NVC alliance name · Survey ${sampleYr} · LOC ${p.location}</span>`,
           { sticky: true, opacity: 0.95 }
         );
       }
