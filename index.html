@@ -1854,7 +1854,7 @@
         const ac      = p.acres != null ? `${parseFloat(p.acres).toFixed(1)} ac` : '';
         const sampleYr = p.sample_date ? new Date(p.sample_date).getFullYear() : '?';
         layer.bindTooltip(
-          `<b>USFS Stand</b> · ${ac}<br>Cover type: ${coverType}<br>Origin: ${yr} · BA: ${ba}<br>DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">General cover type · Survey ${sampleYr} · LOC ${p.location}</span>`,
+          `<b>USFS Stand</b> · ${ac}<br>Origin: ${yr} · BA: ${ba}<br>DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">Survey ${sampleYr} · LOC ${p.location}</span>`,
           { sticky: true, opacity: 0.95 }
         );
       }
