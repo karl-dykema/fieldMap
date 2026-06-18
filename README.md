@@ -1,4 +1,4 @@
-# Newaygo Field Map · v2.20
+# Newaygo Field Map · v2.21
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
@@ -47,7 +47,7 @@ Collapsible panel for stepping through public land parcels one by one. Choose a 
 - **Contours (5 ft)** — derived from county LiDAR/DEM
 
 ### Forest / Timber Layers
-- **USFS Reforestation** — FACTS activity polygons back to 1883, colored by decade of planting
+- **USFS Forest Stands** — Common Stand Exam polygons for Huron-Manistee NF, colored by decade of origin. Hover for species (EV name), year of origin, basal area (ft²/ac), and QMD diameter. Data from USFS FSVeg (~2010 survey).
 - **Fire Fuel Model (FBFM40)** — LANDFIRE 2022 raster showing 40-class surface fuel model
 
 ### Infrastructure
@@ -166,7 +166,7 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 | Pre-settlement vegetation | Michigan Natural Features Inventory (MNFI) | `https://services1.arcgis.com/4ezfu5dIwH83BUNL/ArcGIS/rest/services/Michigan_Land_Cover_Circa_1800/FeatureServer/0` |
 | Land cover (NLCD 2021) | USGS MRLC | `https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms` |
 | Wetlands (Part 303) | Michigan EGLE / MCGI | `https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer` |
-| USFS Reforestation (FACTS) | USDA Forest Service EDW | `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_SilvicultureReforestation_01/MapServer/8` |
+| USFS Forest Stands (FSVeg) | USDA Forest Service (ArcGIS Online) | `https://services1.arcgis.com/gGHDlz6USftL5Pau/arcgis/rest/services/StaticSnapshotForMobile_FSVegUSFS/FeatureServer` |
 | Fire Fuel Model (FBFM40) | LANDFIRE 2022 (USFS / DOI) | `https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer` |
 | Species observations | iNaturalist (research grade) | `https://api.inaturalist.org/v1/observations` |
 | Electric transmission lines | HIFLD (DHS/Esri) | `https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0` |

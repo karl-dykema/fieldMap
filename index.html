@@ -703,7 +703,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.20</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.21</div>
   </div>
 
   <div class="section">
@@ -748,6 +748,9 @@
 
     <label class="check-item">
       <input type="checkbox" id="chk-fbfm"> Fire Fuel Model
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-fsveg"> USFS Forest Stands
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-roads"> Roads
@@ -1755,6 +1758,132 @@
     }
   }
 
+
+  // ── USFS Forest Stands (FSVeg Common Stand Exam data) ────────────
+  // Two-step fetch: stand polygons (layer 1) → related VegCharacterizations
+  // (table 2, relationship 1) joined client-side by OBJECTID.
+  // Data sampled ~2010, covers Huron-Manistee NF. Colored by decade of origin.
+  const FSVEG_FS = 'https://services1.arcgis.com/gGHDlz6USftL5Pau/arcgis/rest/services/StaticSnapshotForMobile_FSVegUSFS/FeatureServer';
+  const FSVEG_MIN_ZOOM = 13;
+
+  let fsvegLayer   = null;
+  let fsvegEnabled = false;
+  let fsvegTimer   = null;
+
+  function fsvegOriginColor(yr) {
+    if (!yr) return { fill: '#aaaaaa', stroke: '#888888' };
+    if (yr < 1900) return { fill: '#7b2d8b', stroke: '#5a1a6e' };
+    if (yr < 1920) return { fill: '#2d6a4f', stroke: '#1a4a35' };
+    if (yr < 1940) return { fill: '#52796f', stroke: '#3a5a52' };
+    if (yr < 1960) return { fill: '#74c69d', stroke: '#4a9a78' };
+    if (yr < 1980) return { fill: '#e9c46a', stroke: '#c8a040' };
+    if (yr < 2000) return { fill: '#f4a261', stroke: '#d07838' };
+    return { fill: '#e76f51', stroke: '#c04e30' };
+  }
+
+  async function loadFsvegLayer() {
+    if (!fsvegEnabled || map.getZoom() < FSVEG_MIN_ZOOM) return;
+    const b = map.getBounds();
+    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+
+    let standsData;
+    try {
+      const q = new URLSearchParams({
+        geometry: bbox, geometryType: 'esriGeometryEnvelope', inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: 'OBJECTID,SPATIAL_ID,LOCATION,POLY_ID,ACRES,SAMPLE_DATE',
+        returnGeometry: 'true', outSR: '4326', f: 'json',
+        resultRecordCount: '300', where: '1=1'
+      });
+      standsData = await fetch(`${FSVEG_FS}/1/query?${q}`).then(r => r.json());
+    } catch(e) { return; }
+
+    const features = standsData.features || [];
+    if (!features.length) {
+      if (fsvegLayer) { map.removeLayer(fsvegLayer); fsvegLayer = null; }
+      return;
+    }
+
+    const oids = features.map(f => f.attributes.OBJECTID);
+
+    let relData;
+    try {
+      const q2 = new URLSearchParams({
+        objectIds: oids.join(','), relationshipId: '1',
+        outFields: 'YEAR_OF_ORIGIN,EV_COMMON_NAME,BASAL_AREA,DBH,CANOPY_CLOSURE',
+        f: 'json'
+      });
+      relData = await fetch(`${FSVEG_FS}/1/queryRelatedRecords?${q2}`).then(r => r.json());
+    } catch(e) { relData = {}; }
+
+    const charMap = {};
+    for (const g of (relData.relatedRecordGroups || [])) {
+      if (g.relatedRecords?.length) charMap[g.objectId] = g.relatedRecords[0].attributes;
+    }
+
+    const geojson = {
+      type: 'FeatureCollection',
+      features: features.map(f => {
+        const oid  = f.attributes.OBJECTID;
+        const char = charMap[oid] || {};
+        return {
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: f.geometry.rings },
+          properties: {
+            location: f.attributes.LOCATION, poly_id: f.attributes.POLY_ID,
+            acres: f.attributes.ACRES, sample_date: f.attributes.SAMPLE_DATE,
+            year_of_origin: char.YEAR_OF_ORIGIN, ev_name: char.EV_COMMON_NAME,
+            basal_area: char.BASAL_AREA, dbh: char.DBH
+          }
+        };
+      })
+    };
+
+    if (fsvegLayer) map.removeLayer(fsvegLayer);
+    fsvegLayer = L.geoJSON(geojson, {
+      style(f) {
+        const c = fsvegOriginColor(f.properties.year_of_origin);
+        return { color: c.stroke, weight: 1, fillColor: c.fill, fillOpacity: 0.5, opacity: 0.85 };
+      },
+      onEachFeature(feature, layer) {
+        const p = feature.properties;
+        const yr      = p.year_of_origin || '—';
+        const species = p.ev_name || '—';
+        const ba      = p.basal_area != null ? `${p.basal_area} ft²/ac` : '—';
+        const dbh     = p.dbh != null ? `${p.dbh}" QMD` : '—';
+        const ac      = p.acres != null ? `${parseFloat(p.acres).toFixed(1)} ac` : '';
+        const sampleYr = p.sample_date ? new Date(p.sample_date).getFullYear() : '?';
+        layer.bindTooltip(
+          `<b>${species}</b><br>Origin: ${yr}${ac ? ' · ' + ac : ''}<br>BA: ${ba} · DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">Survey ${sampleYr} · LOC ${p.location}</span>`,
+          { sticky: true, opacity: 0.95 }
+        );
+      }
+    }).addTo(map);
+  }
+
+  document.getElementById('chk-fsveg').addEventListener('change', e => {
+    fsvegEnabled = e.target.checked;
+    if (fsvegEnabled) {
+      loadFsvegLayer();
+    } else {
+      if (fsvegLayer) { map.removeLayer(fsvegLayer); fsvegLayer = null; }
+    }
+  });
+
+  map.on('moveend', () => {
+    if (!fsvegEnabled) return;
+    clearTimeout(fsvegTimer);
+    fsvegTimer = setTimeout(loadFsvegLayer, 400);
+  });
+
+  map.on('zoomend', () => {
+    if (!fsvegEnabled) return;
+    if (map.getZoom() < FSVEG_MIN_ZOOM) {
+      if (fsvegLayer) { map.removeLayer(fsvegLayer); fsvegLayer = null; }
+    } else {
+      loadFsvegLayer();
+    }
+  });
 
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
   // Fetches research-grade observations from the iNat API and renders as
@@ -2791,6 +2920,16 @@
       });
     }
 
+    // USFS Forest Stands — decade-of-origin legend
+    if (document.getElementById('chk-fsveg').checked) {
+      parts.push('<span class="legend-section">Forest Stands</span>');
+      [['< 1900','#7b2d8b'],['1900–19','#2d6a4f'],['1920–39','#52796f'],['1940–59','#74c69d'],
+       ['1960–79','#e9c46a'],['1980–99','#f4a261'],['2000+','#e76f51'],['Unknown','#aaaaaa']
+      ].forEach(([label, color]) => {
+        parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${label}</span>`);
+      });
+    }
+
     // Pre-settlement vegetation — show only cover types visible in current view
     if (document.getElementById('chk-veg').checked && vegLayer) {
       const seen = new Map(); // type → color
@@ -3190,7 +3329,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.20'),
+          Version:      PDFString.of('2.21'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
