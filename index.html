@@ -74,7 +74,25 @@
       color: #353850;
       margin: 6px 0 2px;
       padding-left: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-right: 6px;
     }
+    .grp-all-btn {
+      font-size: 9px;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
+      padding: 1px 6px;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #f0f0f0;
+      color: #555;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .grp-all-btn:hover { background: #e0e8f0; border-color: #888; }
     .inat-dot {
       width: 18px; height: 18px;
       border-radius: 50%;
@@ -703,7 +721,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.21</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.22</div>
   </div>
 
   <div class="section">
@@ -819,7 +837,7 @@
     </div>
     <div id="species-body" style="display:none">
 
-      <div class="species-group">Insects</div>
+      <div class="species-group">Insects <button class="grp-all-btn" data-grp="insects">all</button></div>
       <label class="check-item">
         <input type="checkbox" id="chk-inat-karner">
         <span class="inat-dot" style="background:#1a3d8a"></span>
@@ -836,7 +854,7 @@
         American Bumble Bee
       </label>
 
-      <div class="species-group">Birds</div>
+      <div class="species-group">Birds <button class="grp-all-btn" data-grp="birds">all</button></div>
       <label class="check-item">
         <input type="checkbox" id="chk-inat-rhwo">
         <span class="inat-dot" style="background:#a01818"></span>
@@ -858,7 +876,7 @@
         Prairie Warbler
       </label>
 
-      <div class="species-group">Reptiles</div>
+      <div class="species-group">Reptiles <button class="grp-all-btn" data-grp="reptiles">all</button></div>
       <label class="check-item">
         <input type="checkbox" id="chk-inat-hognose">
         <span class="inat-dot" style="background:#264d18"></span>
@@ -875,7 +893,7 @@
         Eastern Box Turtle
       </label>
 
-      <div class="species-group">Plants</div>
+      <div class="species-group">Plants <button class="grp-all-btn" data-grp="plants">all</button></div>
       <label class="check-item">
         <input type="checkbox" id="chk-inat-lupine">
         <span class="inat-dot" style="background:#3d1470"></span>
@@ -923,7 +941,7 @@
       </label>
       <label class="check-item">
         <input type="checkbox" id="chk-inat-whorledmilk">
-        <span class="inat-dot" style="background:#e8e8e8"></span>
+        <span class="inat-dot" style="background:#a0a0c0"></span>
         Whorled Milkweed
       </label>
       <label class="check-item">
@@ -945,6 +963,71 @@
         <input type="checkbox" id="chk-inat-penstemon">
         <span class="inat-dot" style="background:#4a6fa5"></span>
         Hairy Beardtongue
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-hazelnut">
+        <span class="inat-dot" style="background:#7b4f2e"></span>
+        American Hazelnut
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-njt">
+        <span class="inat-dot" style="background:#3a7a50"></span>
+        New Jersey Tea
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-leadplant">
+        <span class="inat-dot" style="background:#4a3a8a"></span>
+        Leadplant
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-prairiesmoke">
+        <span class="inat-dot" style="background:#c8503a"></span>
+        Prairie Smoke
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-pphlox">
+        <span class="inat-dot" style="background:#d44080"></span>
+        Prairie Phlox
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-echinaceap">
+        <span class="inat-dot" style="background:#9060b0"></span>
+        Pale Purple Coneflower
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-creamindigo">
+        <span class="inat-dot" style="background:#b8a020"></span>
+        Cream Wild Indigo
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-shootingstar">
+        <span class="inat-dot" style="background:#aa1870"></span>
+        Shooting Star
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-stiffgoldenrod">
+        <span class="inat-dot" style="background:#a08800"></span>
+        Stiff Goldenrod
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-pcinquefoil">
+        <span class="inat-dot" style="background:#7a8a30"></span>
+        Prairie Cinquefoil
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-lbluestem">
+        <span class="inat-dot" style="background:#5a82a0"></span>
+        Little Bluestem
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-pdropseed">
+        <span class="inat-dot" style="background:#6a9a50"></span>
+        Prairie Dropseed
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-inat-bbluestem">
+        <span class="inat-dot" style="background:#3a6848"></span>
+        Big Bluestem
       </label>
     </div>
   </div>
@@ -1917,6 +2000,19 @@
     ['bes',          62741, '#d4820a', 'Black-eyed Susan'],
     ['bushclover',  125186, '#7a5c00', 'Round-headed Bush Clover'],
     ['penstemon',   166381, '#4a6fa5', 'Hairy Beardtongue'],
+    ['hazelnut',     54770, '#7b4f2e', 'American Hazelnut'],
+    ['njt',         129315, '#3a7a50', 'New Jersey Tea'],
+    ['leadplant',   158286, '#4a3a8a', 'Leadplant'],
+    ['prairiesmoke', 57460, '#c8503a', 'Prairie Smoke'],
+    ['pphlox',      127020, '#d44080', 'Prairie Phlox'],
+    ['echinaceap',  127689, '#9060b0', 'Pale Purple Coneflower'],
+    ['creamindigo',  51722, '#b8a020', 'Cream Wild Indigo'],
+    ['shootingstar', 549981,'#aa1870', 'Shooting Star'],
+    ['stiffgoldenrod',125721,'#a08800','Stiff Goldenrod'],
+    ['pcinquefoil', 204304, '#7a8a30', 'Prairie Cinquefoil'],
+    ['lbluestem',   122603, '#5a82a0', 'Little Bluestem'],
+    ['pdropseed',   120557, '#6a9a50', 'Prairie Dropseed'],
+    ['bbluestem',   121968, '#3a6848', 'Big Bluestem'],
   ];
 
   const inatLayers = {};
@@ -2004,6 +2100,34 @@
     const open  = body.style.display !== 'none';
     body.style.display = open ? 'none' : '';
     arrow.classList.toggle('closed', open);
+  });
+
+  // Group "all" buttons — map each data-grp to the inatSpec keys in that group
+  const GRP_KEYS = {
+    insects:  ['karner','dusted','ambb'],
+    birds:    ['rhwo','wpwl','nighthawk','prwa'],
+    reptiles: ['hognose','blanding','boxturt'],
+    plants:   ['lupine','milkweed','crab','goatsrue','puccoon','bfviolet','prcoreopsis',
+               'roughliatris','cyliatris','whorledmilk','bergamot','bes','bushclover','penstemon',
+               'hazelnut','njt','leadplant','prairiesmoke','pphlox','echinaceap','creamindigo',
+               'shootingstar','stiffgoldenrod','pcinquefoil','lbluestem','pdropseed','bbluestem'],
+  };
+
+  document.querySelectorAll('.grp-all-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const keys = GRP_KEYS[btn.dataset.grp] || [];
+      const allOn = keys.every(k => document.getElementById(`chk-inat-${k}`)?.checked);
+      keys.forEach(k => {
+        const cb = document.getElementById(`chk-inat-${k}`);
+        if (!cb) return;
+        if (allOn) {
+          if (cb.checked) { cb.checked = false; cb.dispatchEvent(new Event('change')); }
+        } else {
+          if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+        }
+      });
+    });
   });
 
   // ── NLCD Land Cover ───────────────────────────────────────────────
@@ -3329,7 +3453,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.21'),
+          Version:      PDFString.of('2.22'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([

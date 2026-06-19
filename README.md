@@ -1,4 +1,4 @@
-# Newaygo Field Map · v2.21
+# Newaygo Field Map · v2.22
 
 **[Live Map → karl-dykema.github.io/fieldMap](https://karl-dykema.github.io/fieldMap/)**
 
