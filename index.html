@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.27</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.28</div>
   </div>
 
   <div class="section">
@@ -3557,7 +3557,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.27'),
+          Version:      PDFString.of('2.28'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3990,7 +3990,6 @@
         try {
           if (layer instanceof L.Polygon) {
             const lls = layer.getLatLngs();
-            // Leaflet 1.x polygon: getLatLngs() returns [[ring]] for simple polygon
             const outer = lls[0]?.lat !== undefined ? lls : lls[0];
             const pts = outer.map(ll => [
               ((ll.lng - W) / (E - W) * mW).toFixed(1),
@@ -4005,6 +4004,24 @@
               color: rgb(fr,fg,fb), opacity: layer.options.fillOpacity ?? 0.2,
               borderColor: rgb(sr,sg,sb), borderWidth: layer.options.weight ?? 2,
             });
+            // Area label at centroid
+            try {
+              const gj = layer.toGeoJSON();
+              const sqM  = turf.area(gj);
+              const acres = sqM / 4046.856422;
+              const label = acres >= 0.1
+                ? acres.toFixed(2) + ' ac'
+                : Math.round(sqM * 10.76391).toLocaleString() + ' ft²';
+              const ctr   = turf.centroid(gj).geometry.coordinates;
+              const lx = mX + (ctr[0] - W) / (E - W) * mW;
+              const ly = mY + (N - ctr[1]) / (N - S) * mH;
+              const lw = fontB.widthOfTextAtSize(label, 9);
+              // White knockout behind text
+              page.drawRectangle({x: lx - lw/2 - 2, y: ly - 2, width: lw + 4, height: 12,
+                color: rgb(1,1,1), opacity: 0.6});
+              page.drawText(label, {x: lx - lw/2, y: ly + 1, size: 9, font: fontB,
+                color: rgb(0.08,0.08,0.10)});
+            } catch {}
           } else if (layer instanceof L.Polyline) {
             const lls = layer.getLatLngs();
             const pts = lls.map(ll => [
@@ -4018,6 +4035,23 @@
               x: mX, y: mY + mH,
               borderColor: rgb(sr,sg,sb), borderWidth: layer.options.weight ?? 2,
             });
+            // Length label at midpoint
+            try {
+              let lenM = 0;
+              for (let i = 0; i < lls.length - 1; i++) lenM += lls[i].distanceTo(lls[i+1]);
+              const lenFt = lenM * 3.28084;
+              const label = lenFt < 5280
+                ? Math.round(lenFt).toLocaleString() + ' ft'
+                : (lenFt / 5280).toFixed(2) + ' mi';
+              const mid = lls[Math.floor(lls.length / 2)];
+              const lx = mX + (mid.lng - W) / (E - W) * mW;
+              const ly = mY + (N - mid.lat) / (N - S) * mH;
+              const lw = fontB.widthOfTextAtSize(label, 9);
+              page.drawRectangle({x: lx - lw/2 - 2, y: ly - 2, width: lw + 4, height: 12,
+                color: rgb(1,1,1), opacity: 0.6});
+              page.drawText(label, {x: lx - lw/2, y: ly + 1, size: 9, font: fontB,
+                color: rgb(0.08,0.08,0.10)});
+            } catch {}
           } else if (layer instanceof L.Marker) {
             const ll = layer.getLatLng();
             const px = mX + (ll.lng - W) / (E - W) * mW;
