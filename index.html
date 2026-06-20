@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.25</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.26</div>
   </div>
 
   <div class="section">
@@ -3557,7 +3557,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.25'),
+          Version:      PDFString.of('2.26'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3875,6 +3875,59 @@
           }
         } catch {}
       }
+
+      // ── User annotations ──
+      drawnItems.eachLayer(layer => {
+        try {
+          if (layer instanceof L.Polygon) {
+            const lls = layer.getLatLngs();
+            // Leaflet 1.x polygon: getLatLngs() returns [[ring]] for simple polygon
+            const outer = lls[0]?.lat !== undefined ? lls : lls[0];
+            const pts = outer.map(ll => [
+              ((ll.lng - W) / (E - W) * mW).toFixed(1),
+              ((N - ll.lat) / (N - S) * mH).toFixed(1),
+            ]);
+            let path = `M ${pts[0][0]} ${pts[0][1]}`;
+            for (let i = 1; i < pts.length; i++) path += ` L ${pts[i][0]} ${pts[i][1]}`;
+            const [fr,fg,fb] = hexRgb01(layer.options.fillColor || layer.options.color);
+            const [sr,sg,sb] = hexRgb01(layer.options.color);
+            page.drawSvgPath(path + ' Z', {
+              x: mX, y: mY + mH,
+              color: rgb(fr,fg,fb), opacity: layer.options.fillOpacity ?? 0.2,
+              borderColor: rgb(sr,sg,sb), borderWidth: layer.options.weight ?? 2,
+            });
+          } else if (layer instanceof L.Polyline) {
+            const lls = layer.getLatLngs();
+            const pts = lls.map(ll => [
+              ((ll.lng - W) / (E - W) * mW).toFixed(1),
+              ((N - ll.lat) / (N - S) * mH).toFixed(1),
+            ]);
+            let path = `M ${pts[0][0]} ${pts[0][1]}`;
+            for (let i = 1; i < pts.length; i++) path += ` L ${pts[i][0]} ${pts[i][1]}`;
+            const [sr,sg,sb] = hexRgb01(layer.options.color);
+            page.drawSvgPath(path, {
+              x: mX, y: mY + mH,
+              borderColor: rgb(sr,sg,sb), borderWidth: layer.options.weight ?? 2,
+            });
+          } else if (layer instanceof L.Marker) {
+            const ll = layer.getLatLng();
+            const px = mX + (ll.lng - W) / (E - W) * mW;
+            const py = mY + (N - ll.lat) / (N - S) * mH;
+            const iconHtml = layer.getIcon()?.options?.html || '';
+            const txtMatch = iconHtml.match(/>([^<]+)<\/span>/);
+            if (txtMatch) {
+              // Text label — extract color from inline style
+              const colMatch = iconHtml.match(/color:([^;]+)/);
+              const [cr,cg,cb] = colMatch ? hexRgb01(colMatch[1].trim()) : [0.9,0.2,0.2];
+              page.drawText(txtMatch[1], {x:px, y:py, size:10, font, color:rgb(cr,cg,cb)});
+            } else {
+              // Point marker — small filled circle via SVG
+              page.drawSvgPath('M -4 0 A 4 4 0 1 0 4 0 A 4 4 0 1 0 -4 0 Z',
+                {x:px, y:py, color:rgb(0.9,0.2,0.2), borderColor:rgb(0.6,0,0), borderWidth:1});
+            }
+          }
+        } catch {}
+      });
 
       // ── Map border ──
       page.drawRectangle({x:mX, y:mY, width:mW, height:mH,
