@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.24</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.25</div>
   </div>
 
   <div class="section">
@@ -3300,6 +3300,17 @@
     attachMeasurement(layer, e.layerType);
   });
 
+  map.on(L.Draw.Event.EDITED, e => {
+    e.layers.eachLayer(layer => {
+      const type = layer instanceof L.Polygon ? 'polygon'
+                 : layer instanceof L.Polyline ? 'polyline'
+                 : 'marker';
+      layer.off('click');
+      if (layer.getTooltip()) layer.unbindTooltip();
+      attachMeasurement(layer, type);
+    });
+  });
+
   function startDrawTool(btnId, HandlerClass, opts) {
     if (activeDrawHandler) { stopDraw(); return; }
     stopDraw();
@@ -3541,18 +3552,19 @@
           }
         }
 
-        // OGC LGIDict — PDF origin is bottom-left; (0,H) = top of page = north
+        // OGC LGIDict (Avenza legacy) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia GPS, Guru Maps, etc.)
         const pdfCtx = pdfDoc.context;
-        const lgi = pdfCtx.obj({
+        const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
+        page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.24'),
+          Version:      PDFString.of('2.25'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
-            [0, 0, b.getWest(),  b.getSouth()],
-            [W, 0, b.getEast(),  b.getSouth()],
-            [W, H, b.getEast(),  b.getNorth()],
-            [0, H, b.getWest(),  b.getNorth()],
+            [0, 0, bW, bS],
+            [W, 0, bE, bS],
+            [W, H, bE, bN],
+            [0, H, bW, bN],
           ]),
           Projection: pdfCtx.obj({
             Type:           PDFName.of('Projection'),
@@ -3560,8 +3572,26 @@
             Datum:          PDFString.of('WGS84'),
             Units:          PDFString.of('DEGREES'),
           }),
-        });
-        page.node.set(PDFName.of('LGIDict'), lgi);
+        }));
+        // ISO 32000 VP/Measure — Bounds/GPTS corners: BL=SW, BR=SE, TR=NE, TL=NW
+        // GPTS format: [lat,lon] pairs matching Bounds order
+        const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
+        page.node.set(PDFName.of('VP'), pdfCtx.obj([{
+          Type:    PDFName.of('Viewport'),
+          BBox:    pdfCtx.obj([0, 0, W, H]),
+          Name:    PDFString.of('Newaygo County Field Map'),
+          Measure: pdfCtx.obj({
+            Type:    PDFName.of('Measure'),
+            Subtype: PDFName.of('GEO'),
+            Bounds:  pdfCtx.obj([0,0, 1,0, 1,1, 0,1]),
+            GPTS:    pdfCtx.obj([bS,bW, bS,bE, bN,bE, bN,bW]),
+            LPTS:    pdfCtx.obj([0,0,  1,0,  1,1,  0,1]),
+            GCS:     pdfCtx.obj({
+              Type: PDFName.of('PROJCS'),
+              WKT:  PDFString.of(wgs84Wkt),
+            }),
+          }),
+        }]));
 
         const bytes = await pdfDoc.save();
         const url   = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -3634,6 +3664,27 @@
     if (printDragRect) { map.removeLayer(printDragRect); printDragRect = null; }
     printBounds = null;
   });
+
+  // Expand bbox to match page map area aspect ratio (accounts for cos(lat) at this latitude)
+  function fitBboxToAspect(raw, ptW, ptH) {
+    const c      = raw.getCenter();
+    const cosLat = Math.cos(c.lat * Math.PI / 180);
+    const latSp  = raw.getNorth() - raw.getSouth();
+    const lngSp  = raw.getEast()  - raw.getWest();
+    const cur    = (lngSp * cosLat) / latSp;
+    const tgt    = ptW / ptH;
+    let nLat = latSp, nLng = lngSp;
+    if (cur > tgt) nLat = (lngSp * cosLat) / tgt;
+    else           nLng = (latSp * tgt) / cosLat;
+    return L.latLngBounds([c.lat - nLat/2, c.lng - nLng/2], [c.lat + nLat/2, c.lng + nLng/2]);
+  }
+
+  // Read actual width/height from a PNG ArrayBuffer (bytes 16-23 of IHDR chunk)
+  function pngDims(bytes) {
+    const v = new DataView(bytes);
+    if (v.byteLength < 24 || v.getUint32(0) !== 0x89504E47) return null;
+    return { w: v.getUint32(16), h: v.getUint32(20) };
+  }
 
   function hexRgb01(hex) {
     const h = hex.replace('#', '');
@@ -3855,11 +3906,12 @@
       drawNArrow(page, font, pageW-60, titleH*0.52, 22);
       drawScaleBar(page, font, pageW-100, titleH*0.30, bounds, mapPtW);
 
-      // ── OGC LGIDict — georef to actual image position on page ──
+      // ── OGC LGIDict (Avenza) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia, Guru Maps) ──
       const ctx = pdfDoc.context;
+      const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.23'),
+        Version:      PDFString.of('2.24'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           mapPtX,        mapPtY,
@@ -3880,6 +3932,23 @@
           Units:          PDFString.of('DEGREES'),
         }),
       }));
+      // ISO 32000 VP/Measure — GPTS: [lat,lon] pairs for BL, BR, TR, TL corners
+      page.node.set(PDFName.of('VP'), ctx.obj([{
+        Type:    PDFName.of('Viewport'),
+        BBox:    ctx.obj([mapPtX, mapPtY, mapPtX+mapPtW, mapPtY+mapPtH]),
+        Name:    PDFString.of(titleText),
+        Measure: ctx.obj({
+          Type:    PDFName.of('Measure'),
+          Subtype: PDFName.of('GEO'),
+          Bounds:  ctx.obj([0,0, 1,0, 1,1, 0,1]),
+          GPTS:    ctx.obj([S,W, S,E, N,E, N,W]),
+          LPTS:    ctx.obj([0,0, 1,0, 1,1, 0,1]),
+          GCS:     ctx.obj({
+            Type: PDFName.of('PROJCS'),
+            WKT:  PDFString.of(wgs84Wkt),
+          }),
+        }),
+      }]));
 
       const bytes = await pdfDoc.save();
       const url   = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
