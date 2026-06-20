@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.23</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.24</div>
   </div>
 
   <div class="section">
@@ -3545,7 +3545,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.23'),
+          Version:      PDFString.of('2.24'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3634,20 +3634,6 @@
     if (printDragRect) { map.removeLayer(printDragRect); printDragRect = null; }
     printBounds = null;
   });
-
-  // Expand bbox so its geographic aspect ratio matches the image pixel ratio (no distortion)
-  function fitBboxToAspect(raw, imgW, imgH) {
-    const c      = raw.getCenter();
-    const cosLat = Math.cos(c.lat * Math.PI / 180);
-    const latSp  = raw.getNorth() - raw.getSouth();
-    const lngSp  = raw.getEast()  - raw.getWest();
-    const cur    = (lngSp * cosLat) / latSp;
-    const tgt    = imgW / imgH;
-    let nLat = latSp, nLng = lngSp;
-    if (cur > tgt) nLat = (lngSp * cosLat) / tgt;
-    else           nLng = (latSp * tgt) / cosLat;
-    return L.latLngBounds([c.lat - nLat/2, c.lng - nLng/2], [c.lat + nLat/2, c.lng + nLng/2]);
-  }
 
   function hexRgb01(hex) {
     const h = hex.replace('#', '');
@@ -3740,16 +3726,33 @@
     const pageW  = Math.round(paper.wIn * 72);
     const pageH  = Math.round(paper.hIn * 72);
     const titleH = 90;
-    const mapPtW = pageW;
-    const mapPtH = pageH - titleH;
+    const availW = pageW;
+    const availH = pageH - titleH;
 
-    // Pixel dimensions for image fetch
-    const mapPxW = Math.round(paper.wIn * dpi);
-    const mapPxH = Math.round((paper.hIn - titleH/72) * dpi);
-
-    // Adjust bbox aspect ratio to match page map area (no distortion)
-    const bounds = fitBboxToAspect(printBounds, mapPxW, mapPxH);
+    // Use the user's exact bbox — never stretch or expand it
+    const bounds = printBounds;
     const W=bounds.getWest(), E=bounds.getEast(), S=bounds.getSouth(), N=bounds.getNorth();
+
+    // Geographic aspect ratio accounting for cos(lat) — this is the "true" width/height ratio
+    const cosLat    = Math.cos(((N+S)/2) * Math.PI / 180);
+    const geoAspect = ((E-W) * cosLat) / (N-S);  // > 1 = wider than tall
+
+    // Fit map image within available space maintaining correct geographic ratio
+    let mapPtW, mapPtH;
+    if (geoAspect > availW / availH) {
+      mapPtW = availW;
+      mapPtH = Math.round(availW / geoAspect);
+    } else {
+      mapPtH = availH;
+      mapPtW = Math.round(availH * geoAspect);
+    }
+    // Center the map within the available space
+    const mapPtX = Math.round((availW - mapPtW) / 2);
+    const mapPtY = titleH + Math.round((availH - mapPtH) / 2);
+
+    // Pixel dimensions for image fetch (DPI-scaled from PDF points)
+    const mapPxW = Math.min(4096, Math.round(mapPtW * dpi / 72));
+    const mapPxH = Math.min(4096, Math.round(mapPtH * dpi / 72));
     const bbox = `${W},${S},${E},${N}`;
     const sz   = `${mapPxW},${mapPxH}`;
 
@@ -3783,19 +3786,24 @@
       const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const fontB  = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+      // Background for areas outside the map image (letterbox margins)
+      page.drawRectangle({x:0, y:titleH, width:availW, height:availH, color:rgb(0.15,0.15,0.16)});
+
       // ── Map imagery ──
       const baseImg = await embedAnyImg(pdfDoc, baseBytes);
-      if (baseImg) page.drawImage(baseImg, {x:0, y:titleH, width:mapPtW, height:mapPtH});
+      if (baseImg) page.drawImage(baseImg, {x:mapPtX, y:mapPtY, width:mapPtW, height:mapPtH});
 
       for (const bytes of ovBytes) {
         if (!bytes) continue;
         try {
           const img = await embedAnyImg(pdfDoc, bytes);
-          if (img) page.drawImage(img, {x:0, y:titleH, width:mapPtW, height:mapPtH});
+          if (img) page.drawImage(img, {x:mapPtX, y:mapPtY, width:mapPtW, height:mapPtH});
         } catch {}
       }
 
       // ── FSVeg vector polygons (re-query for print bbox) ──
+      // SVG coords: origin at (mapPtX, mapPtY+mapPtH) = top-left of map in PDF space;
+      // SVG y increases downward → south = mapPtH, north = 0.
       if (fsvegEnabled) {
         const q = new URLSearchParams({geometry:bbox, geometryType:'esriGeometryEnvelope',
           inSR:'4326', spatialRel:'esriSpatialRelIntersects',
@@ -3813,7 +3821,7 @@
               ]);
               let path = `M ${pts[0][0]} ${pts[0][1]}`;
               for (let i=1;i<pts.length;i++) path += ` L ${pts[i][0]} ${pts[i][1]}`;
-              page.drawSvgPath(path+' Z', {x:0, y:pageH,
+              page.drawSvgPath(path+' Z', {x:mapPtX, y:mapPtY+mapPtH,
                 color:rgb(fr,fg,fb), opacity:0.5,
                 borderColor:rgb(...hexRgb01(c.stroke)), borderWidth:0.6});
             }
@@ -3822,7 +3830,7 @@
       }
 
       // ── Map border ──
-      page.drawRectangle({x:0, y:titleH, width:mapPtW, height:mapPtH,
+      page.drawRectangle({x:mapPtX, y:mapPtY, width:mapPtW, height:mapPtH,
         borderColor:rgb(0.15,0.15,0.15), borderWidth:1.5});
 
       // ── Title block background + separator ──
@@ -3847,18 +3855,23 @@
       drawNArrow(page, font, pageW-60, titleH*0.52, 22);
       drawScaleBar(page, font, pageW-100, titleH*0.30, bounds, mapPtW);
 
-      // ── OGC LGIDict — georef points to map area only, not title block ──
+      // ── OGC LGIDict — georef to actual image position on page ──
       const ctx = pdfDoc.context;
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
         Version:      PDFString.of('2.23'),
         Description:  PDFString.of(titleText),
-        Neatline:     ctx.obj([0,titleH, mapPtW,titleH, mapPtW,pageH, 0,pageH]),
+        Neatline: ctx.obj([
+          mapPtX,        mapPtY,
+          mapPtX+mapPtW, mapPtY,
+          mapPtX+mapPtW, mapPtY+mapPtH,
+          mapPtX,        mapPtY+mapPtH,
+        ]),
         Registration: ctx.obj([
-          [0,      titleH, W, S],
-          [mapPtW, titleH, E, S],
-          [mapPtW, pageH,  E, N],
-          [0,      pageH,  W, N],
+          [mapPtX,        mapPtY,        W, S],
+          [mapPtX+mapPtW, mapPtY,        E, S],
+          [mapPtX+mapPtW, mapPtY+mapPtH, E, N],
+          [mapPtX,        mapPtY+mapPtH, W, N],
         ]),
         Projection: ctx.obj({
           Type:           PDFName.of('Projection'),
