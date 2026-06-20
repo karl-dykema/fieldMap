@@ -450,6 +450,52 @@
     }
     .ann-popup-del-btn:hover { background: #3a1818; color: #e08080; }
 
+    /* ── Print Layout panel ──────────────────────────────── */
+    #print-draw-hint {
+      display: none; position: fixed; top: 14px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(12,15,26,0.93); border: 1px solid #3a6e80;
+      color: #7ecfdf; font-size: 12px; padding: 7px 20px;
+      border-radius: 20px; z-index: 3000; pointer-events: none;
+      white-space: nowrap; letter-spacing: 0.02em;
+    }
+    #print-config-panel {
+      display: none; position: fixed; right: 14px; bottom: 50px;
+      background: #1a1d2e; border: 1px solid #2a2e44;
+      border-radius: 8px; padding: 14px 16px; z-index: 2000;
+      width: 272px; flex-direction: column; gap: 9px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.75);
+      color: #dde1f0; font-size: 12px;
+    }
+    #print-config-panel h3 {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.12em; color: #4a5070; margin: 0 0 2px;
+    }
+    .print-field { display: flex; flex-direction: column; gap: 3px; }
+    .print-lbl { font-size: 10px; color: #5a637a; }
+    .print-input, .print-select {
+      background: #0f1220; border: 1px solid #2a2e44; color: #dde1f0;
+      border-radius: 4px; padding: 5px 8px; font-size: 12px;
+      font-family: inherit; outline: none;
+    }
+    .print-input:focus, .print-select:focus { border-color: #3a5a8a; }
+    .print-row { display: flex; gap: 8px; }
+    .print-row .print-field { flex: 1; }
+    .print-btn-row { display: flex; gap: 6px; margin-top: 3px; }
+    .print-btn {
+      padding: 6px 10px; font-size: 11px; border-radius: 4px;
+      background: transparent; border: 1px solid #2a2e44; color: #5a637a;
+      cursor: pointer; font-family: inherit;
+    }
+    .print-btn:hover { border-color: #4a5070; color: #8a93b4; }
+    .print-btn-primary {
+      flex: 1; background: #0f2a3a; border: 1px solid #3a6e80; color: #7ecfdf;
+      padding: 7px; font-size: 12px; font-weight: 600; border-radius: 4px;
+      cursor: pointer; font-family: inherit;
+    }
+    .print-btn-primary:hover:not(:disabled) { background: #152a38; color: #b0e8f0; }
+    .print-btn-primary:disabled { opacity: 0.4; cursor: default; }
+
     /* ── Map legend bar ──────────────────────────────────── */
     #map-legend {
       position: fixed;
@@ -721,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.22</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.23</div>
   </div>
 
   <div class="section">
@@ -1106,11 +1152,57 @@
   <div class="section">
     <div class="section-label">Export</div>
     <button class="export-btn" id="btn-export-pdf">GeoPDF (Avenza)</button>
+    <button class="export-btn" id="btn-print-layout">Print Layout…</button>
   </div>
 
 </div>
 
 <div id="map"></div>
+
+<div id="print-draw-hint">Click and drag to define the print area</div>
+
+<div id="print-config-panel">
+  <h3>Print Layout</h3>
+  <div class="print-field">
+    <label class="print-lbl">Map title</label>
+    <input class="print-input" id="print-title" type="text" placeholder="Robinson Forest">
+  </div>
+  <div class="print-field">
+    <label class="print-lbl">Subtitle / season</label>
+    <input class="print-input" id="print-subtitle" type="text" placeholder="Spring 2026">
+  </div>
+  <div class="print-row">
+    <div class="print-field">
+      <label class="print-lbl">Paper</label>
+      <select class="print-select" id="print-paper">
+        <option value="letter-land">Letter landscape</option>
+        <option value="tabloid-land">Tabloid landscape</option>
+        <option value="letter-port">Letter portrait</option>
+      </select>
+    </div>
+    <div class="print-field">
+      <label class="print-lbl">DPI</label>
+      <select class="print-select" id="print-dpi">
+        <option value="150">150</option>
+        <option value="300" selected>300</option>
+      </select>
+    </div>
+  </div>
+  <div class="print-field">
+    <label class="print-lbl">Base imagery</label>
+    <select class="print-select" id="print-base">
+      <option value="satellite">ESRI Satellite</option>
+      <option value="topo">ESRI Topo</option>
+      <option value="naip">NAIP (USDA)</option>
+    </select>
+  </div>
+  <div class="print-btn-row">
+    <button class="print-btn" id="print-redraw-btn">↩ Redraw</button>
+    <button class="print-btn" id="print-cancel-btn">Cancel</button>
+    <button class="print-btn-primary" id="print-generate-btn">Generate GeoPDF</button>
+  </div>
+</div>
+
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
   <defs>
     <pattern id="parcel-hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
@@ -3453,7 +3545,7 @@
         const pdfCtx = pdfDoc.context;
         const lgi = pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.22'),
+          Version:      PDFString.of('2.23'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3485,6 +3577,312 @@
       btn.textContent = 'GeoPDF (Avenza)';
       btn.disabled = false;
     });
+  });
+
+  // ── Print Layout ──────────────────────────────────────────────────────────
+
+  const PRINT_PAPERS = {
+    'letter-land':  { wIn: 11,  hIn: 8.5 },
+    'tabloid-land': { wIn: 17,  hIn: 11  },
+    'letter-port':  { wIn: 8.5, hIn: 11  },
+  };
+
+  let printBounds = null, printDragStart = null, printDragRect = null;
+
+  function enterPrintDrawMode() {
+    map.dragging.disable();
+    map.getContainer().style.cursor = 'crosshair';
+    document.getElementById('print-draw-hint').style.display = 'block';
+    map.once('mousedown', function(e) {
+      printDragStart = e.latlng;
+      map.on('mousemove', onPrintMove);
+      map.once('mouseup', onPrintUp);
+    });
+  }
+
+  function onPrintMove(e) {
+    const b = L.latLngBounds(printDragStart, e.latlng);
+    if (printDragRect) { map.removeLayer(printDragRect); printDragRect = null; }
+    printDragRect = L.rectangle(b, {
+      color: '#38b6ff', weight: 2, dashArray: '6,4', fillOpacity: 0.06, fillColor: '#38b6ff'
+    }).addTo(map);
+  }
+
+  function onPrintUp(e) {
+    map.off('mousemove', onPrintMove);
+    map.dragging.enable();
+    map.getContainer().style.cursor = '';
+    document.getElementById('print-draw-hint').style.display = 'none';
+    printBounds = L.latLngBounds(printDragStart, e.latlng);
+    printDragStart = null;
+    document.getElementById('print-config-panel').style.display = 'flex';
+  }
+
+  document.getElementById('btn-print-layout').addEventListener('click', () => {
+    document.getElementById('print-config-panel').style.display = 'none';
+    enterPrintDrawMode();
+  });
+
+  document.getElementById('print-redraw-btn').addEventListener('click', () => {
+    document.getElementById('print-config-panel').style.display = 'none';
+    if (printDragRect) { map.removeLayer(printDragRect); printDragRect = null; }
+    enterPrintDrawMode();
+  });
+
+  document.getElementById('print-cancel-btn').addEventListener('click', () => {
+    document.getElementById('print-config-panel').style.display = 'none';
+    if (printDragRect) { map.removeLayer(printDragRect); printDragRect = null; }
+    printBounds = null;
+  });
+
+  // Expand bbox so its geographic aspect ratio matches the image pixel ratio (no distortion)
+  function fitBboxToAspect(raw, imgW, imgH) {
+    const c      = raw.getCenter();
+    const cosLat = Math.cos(c.lat * Math.PI / 180);
+    const latSp  = raw.getNorth() - raw.getSouth();
+    const lngSp  = raw.getEast()  - raw.getWest();
+    const cur    = (lngSp * cosLat) / latSp;
+    const tgt    = imgW / imgH;
+    let nLat = latSp, nLng = lngSp;
+    if (cur > tgt) nLat = (lngSp * cosLat) / tgt;
+    else           nLng = (latSp * tgt) / cosLat;
+    return L.latLngBounds([c.lat - nLat/2, c.lng - nLng/2], [c.lat + nLat/2, c.lng + nLng/2]);
+  }
+
+  function hexRgb01(hex) {
+    const h = hex.replace('#', '');
+    return [parseInt(h.slice(0,2),16)/255, parseInt(h.slice(2,4),16)/255, parseInt(h.slice(4,6),16)/255];
+  }
+
+  async function fetchLayerBytes(url) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      return await r.arrayBuffer();
+    } catch { return null; }
+  }
+
+  async function embedAnyImg(pdfDoc, bytes) {
+    try { return await pdfDoc.embedPng(bytes); } catch {}
+    try { return await pdfDoc.embedJpg(bytes); } catch {}
+    return null;
+  }
+
+  // Michigan LP simplified outline (~21 pts, clockwise)
+  const MI_LNG = [-86.8,-86.0,-85.2,-84.5,-83.5,-82.8,-82.4,-82.5,-83.0,-83.5,-83.9,-84.0,-84.5,-84.8,-84.5,-84.2,-86.2,-86.5,-86.8,-86.9,-86.8];
+  const MI_LAT = [42.0, 42.0, 41.8, 41.7, 41.8, 42.1, 43.0, 43.5, 43.9, 43.8, 44.1, 44.0, 44.0, 44.5, 45.4, 45.8, 45.9, 44.5, 44.0, 43.0, 42.0];
+
+  // drawSvgPath places SVG origin at (x, y) in PDF coords; SVG y increases downward.
+  function drawMiInset(page, font, cx, cy, sz, hiB) {
+    const { rgb } = PDFLib;
+    const lngMin=-87.3, lngMax=-82.0, latMin=41.6, latMax=46.1;
+    const scale = Math.min(sz/(lngMax-lngMin), sz/(latMax-latMin));
+    const lpW=(lngMax-lngMin)*scale, lpH=(latMax-latMin)*scale;
+    const ox=(sz-lpW)/2, oy=(sz-lpH)/2;
+    const px=cx-sz/2, py=cy+sz/2;   // SVG origin = top-left of inset box in PDF coords
+    const tx = lng => ox + (lng-lngMin)*scale;
+    const ty = lat => oy + (latMax-lat)*scale;  // y-down
+
+    let path = `M ${tx(MI_LNG[0]).toFixed(1)} ${ty(MI_LAT[0]).toFixed(1)}`;
+    for (let i=1; i<MI_LNG.length; i++) path += ` L ${tx(MI_LNG[i]).toFixed(1)} ${ty(MI_LAT[i]).toFixed(1)}`;
+    path += ' Z';
+    page.drawSvgPath(path, {x:px, y:py, color:rgb(0.58,0.68,0.48), borderColor:rgb(0.28,0.38,0.20), borderWidth:0.6});
+
+    // Red box for the print area
+    const hx1=tx(hiB.getWest()), hx2=tx(hiB.getEast());
+    const hy1=ty(hiB.getNorth()), hy2=ty(hiB.getSouth());
+    const hiPath = `M ${hx1} ${hy1} L ${hx2} ${hy1} L ${hx2} ${hy2} L ${hx1} ${hy2} Z`;
+    page.drawSvgPath(hiPath, {x:px, y:py, color:rgb(0.85,0.1,0.1), opacity:0.85, borderColor:rgb(0.6,0,0), borderWidth:0.8});
+    page.drawText('MI', {x:cx-4, y:cy-sz/2-10, size:7, font, color:rgb(0.28,0.38,0.20)});
+  }
+
+  function drawNArrow(page, font, cx, cy, sz) {
+    const { rgb } = PDFLib;
+    const hs=sz/2, bw=sz*0.38, bh=sz*0.65;
+    page.drawLine({start:{x:cx, y:cy-hs}, end:{x:cx, y:cy+hs}, thickness:1.5, color:rgb(0.1,0.1,0.1)});
+    // Arrow head: SVG origin at tip (cx, cy+hs); triangle points down in SVG = up in PDF
+    page.drawSvgPath(`M 0 0 L ${-bw} ${bh} L ${bw} ${bh} Z`, {x:cx, y:cy+hs, color:rgb(0.1,0.1,0.1)});
+    page.drawText('N', {x:cx-4, y:cy+hs+5, size:10, font, color:rgb(0.1,0.1,0.1)});
+  }
+
+  function drawScaleBar(page, font, x, y, bounds, mapPtW) {
+    const { rgb } = PDFLib;
+    const lat = (bounds.getNorth()+bounds.getSouth())/2;
+    const kmTotal = (bounds.getEast()-bounds.getWest()) * 6371 * Math.cos(lat*Math.PI/180) * Math.PI/180;
+    const miTotal = kmTotal * 0.621371;
+    const target  = miTotal * 0.22;
+    const mag     = Math.pow(10, Math.floor(Math.log10(target || 1)));
+    const nice    = [1,2,5,10].map(n=>n*mag).find(n=>n>=target*0.6) || mag;
+    const barW    = (nice/miTotal)*mapPtW;
+    const barH    = 5;
+    page.drawRectangle({x, y, width:barW/2, height:barH, color:rgb(0.1,0.1,0.1)});
+    page.drawRectangle({x:x+barW/2, y, width:barW/2, height:barH, color:rgb(0.94,0.94,0.94),
+      borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
+    page.drawRectangle({x, y, width:barW, height:barH, borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
+    page.drawText('0',  {x, y:y+barH+2, size:7, font, color:rgb(0.15,0.15,0.15)});
+    const lbl = nice >= 1 ? `${nice} mi` : `${Math.round(nice*5280)} ft`;
+    page.drawText(lbl, {x:x+barW-12, y:y+barH+2, size:7, font, color:rgb(0.15,0.15,0.15)});
+  }
+
+  document.getElementById('print-generate-btn').addEventListener('click', async () => {
+    if (!printBounds) return;
+    const btn = document.getElementById('print-generate-btn');
+    btn.disabled = true;
+
+    const titleText = document.getElementById('print-title').value.trim()    || 'Field Map';
+    const subText   = document.getElementById('print-subtitle').value.trim() ||
+      new Date().toLocaleDateString('en-US', {month:'long', year:'numeric'});
+    const paper = PRINT_PAPERS[document.getElementById('print-paper').value];
+    const dpi   = parseInt(document.getElementById('print-dpi').value);
+    const base  = document.getElementById('print-base').value;
+
+    // PDF page dimensions in points (72 pts = 1 inch)
+    const pageW  = Math.round(paper.wIn * 72);
+    const pageH  = Math.round(paper.hIn * 72);
+    const titleH = 90;
+    const mapPtW = pageW;
+    const mapPtH = pageH - titleH;
+
+    // Pixel dimensions for image fetch
+    const mapPxW = Math.round(paper.wIn * dpi);
+    const mapPxH = Math.round((paper.hIn - titleH/72) * dpi);
+
+    // Adjust bbox aspect ratio to match page map area (no distortion)
+    const bounds = fitBboxToAspect(printBounds, mapPxW, mapPxH);
+    const W=bounds.getWest(), E=bounds.getEast(), S=bounds.getSouth(), N=bounds.getNorth();
+    const bbox = `${W},${S},${E},${N}`;
+    const sz   = `${mapPxW},${mapPxH}`;
+
+    const BASE_URLS = {
+      satellite: `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png32&f=image`,
+      topo:      `https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png32&f=image`,
+      naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png&f=image`,
+    };
+
+    // Active raster overlays
+    const overlayFetches = [];
+    if (document.getElementById('chk-nlcd').checked)
+      overlayFetches.push(fetchLayerBytes(`https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms?service=WMS&version=1.1.1&request=GetMap&layers=NLCD_2021_Land_Cover_L48&bbox=${bbox}&width=${mapPxW}&height=${mapPxH}&srs=EPSG:4326&format=image/png&transparent=true`));
+    if (document.getElementById('chk-wetlands').checked)
+      overlayFetches.push(fetchLayerBytes(`https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png32&transparent=true&f=image`));
+    if (document.getElementById('chk-fbfm').checked)
+      overlayFetches.push(fetchLayerBytes(`https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png&transparent=true&f=image`));
+
+    try {
+      btn.textContent = 'Fetching imagery…';
+      const [baseBytes, ...ovBytes] = await Promise.all([
+        fetchLayerBytes(BASE_URLS[base]),
+        ...overlayFetches,
+      ]);
+      if (!baseBytes) throw new Error('Base imagery failed to load');
+
+      btn.textContent = 'Building PDF…';
+      const { PDFDocument, PDFName, PDFString, StandardFonts, rgb } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+      const page   = pdfDoc.addPage([pageW, pageH]);
+      const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontB  = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // ── Map imagery ──
+      const baseImg = await embedAnyImg(pdfDoc, baseBytes);
+      if (baseImg) page.drawImage(baseImg, {x:0, y:titleH, width:mapPtW, height:mapPtH});
+
+      for (const bytes of ovBytes) {
+        if (!bytes) continue;
+        try {
+          const img = await embedAnyImg(pdfDoc, bytes);
+          if (img) page.drawImage(img, {x:0, y:titleH, width:mapPtW, height:mapPtH});
+        } catch {}
+      }
+
+      // ── FSVeg vector polygons (re-query for print bbox) ──
+      if (fsvegEnabled) {
+        const q = new URLSearchParams({geometry:bbox, geometryType:'esriGeometryEnvelope',
+          inSR:'4326', spatialRel:'esriSpatialRelIntersects',
+          outFields:'YEAR_OF_ORIGIN', returnGeometry:'true', outSR:'4326', f:'json', where:'1=1'});
+        try {
+          const sd = await fetch(`${FSVEG_FS}/1/query?${q}`).then(r=>r.json());
+          for (const feat of (sd.features||[])) {
+            const c = fsvegOriginColor(feat.attributes.YEAR_OF_ORIGIN);
+            const [fr,fg,fb] = hexRgb01(c.fill);
+            for (const ring of (feat.geometry.rings||[])) {
+              if (ring.length < 3) continue;
+              const pts = ring.map(([lng,lat]) => [
+                ((lng-W)/(E-W)*mapPtW).toFixed(1),
+                ((N-lat)/(N-S)*mapPtH).toFixed(1),
+              ]);
+              let path = `M ${pts[0][0]} ${pts[0][1]}`;
+              for (let i=1;i<pts.length;i++) path += ` L ${pts[i][0]} ${pts[i][1]}`;
+              page.drawSvgPath(path+' Z', {x:0, y:pageH,
+                color:rgb(fr,fg,fb), opacity:0.5,
+                borderColor:rgb(...hexRgb01(c.stroke)), borderWidth:0.6});
+            }
+          }
+        } catch {}
+      }
+
+      // ── Map border ──
+      page.drawRectangle({x:0, y:titleH, width:mapPtW, height:mapPtH,
+        borderColor:rgb(0.15,0.15,0.15), borderWidth:1.5});
+
+      // ── Title block background + separator ──
+      page.drawRectangle({x:0, y:0, width:pageW, height:titleH, color:rgb(0.96,0.94,0.90)});
+      page.drawLine({start:{x:0,y:titleH}, end:{x:pageW,y:titleH}, thickness:2, color:rgb(0.15,0.15,0.15)});
+
+      // Left zone: Michigan inset
+      const insetSz=64, insetCx=52, insetCy=titleH/2;
+      drawMiInset(page, font, insetCx, insetCy, insetSz, bounds);
+      page.drawLine({start:{x:112,y:6}, end:{x:112,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
+
+      // Center zone: title + subtitle + coord note
+      const tSize = titleText.length > 20 ? 16 : titleText.length > 12 ? 20 : 24;
+      const tW = fontB.widthOfTextAtSize(titleText, tSize);
+      page.drawText(titleText, {x:(pageW-tW)/2, y:titleH*0.58, size:tSize, font:fontB, color:rgb(0.08,0.08,0.10)});
+      const sW = font.widthOfTextAtSize(subText, 12);
+      page.drawText(subText, {x:(pageW-sW)/2, y:titleH*0.28, size:12, font, color:rgb(0.35,0.35,0.38)});
+      page.drawText(`WGS 1984  ·  ${W.toFixed(4)}°W  ${S.toFixed(4)}°N`, {x:118, y:7, size:7, font, color:rgb(0.52,0.52,0.54)});
+
+      // Right zone: north arrow + scale bar
+      page.drawLine({start:{x:pageW-102,y:6}, end:{x:pageW-102,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
+      drawNArrow(page, font, pageW-60, titleH*0.52, 22);
+      drawScaleBar(page, font, pageW-100, titleH*0.30, bounds, mapPtW);
+
+      // ── OGC LGIDict — georef points to map area only, not title block ──
+      const ctx = pdfDoc.context;
+      page.node.set(PDFName.of('LGIDict'), ctx.obj({
+        Type:         PDFName.of('LGIDict'),
+        Version:      PDFString.of('2.23'),
+        Description:  PDFString.of(titleText),
+        Neatline:     ctx.obj([0,titleH, mapPtW,titleH, mapPtW,pageH, 0,pageH]),
+        Registration: ctx.obj([
+          [0,      titleH, W, S],
+          [mapPtW, titleH, E, S],
+          [mapPtW, pageH,  E, N],
+          [0,      pageH,  W, N],
+        ]),
+        Projection: ctx.obj({
+          Type:           PDFName.of('Projection'),
+          ProjectionType: PDFString.of('GEOGRAPHIC'),
+          Datum:          PDFString.of('WGS84'),
+          Units:          PDFString.of('DEGREES'),
+        }),
+      }));
+
+      const bytes = await pdfDoc.save();
+      const url   = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+      const a     = document.createElement('a');
+      a.href      = url;
+      a.download  = `${titleText.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+    } catch(e) {
+      console.error('Print layout failed:', e);
+      alert('Print layout failed: ' + e.message);
+    }
+
+    btn.textContent = 'Generate GeoPDF';
+    btn.disabled = false;
   });
 
 </script>
