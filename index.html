@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.28</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.29</div>
   </div>
 
   <div class="section">
@@ -1236,6 +1236,7 @@
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
 <script>
 
@@ -3557,7 +3558,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.28'),
+          Version:      PDFString.of('2.29'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3738,32 +3739,36 @@
     return null;
   }
 
-  // Michigan LP simplified outline (~21 pts, clockwise)
-  const MI_LNG = [-86.8,-86.0,-85.2,-84.5,-83.5,-82.8,-82.4,-82.5,-83.0,-83.5,-83.9,-84.0,-84.5,-84.8,-84.5,-84.2,-86.2,-86.5,-86.8,-86.9,-86.8];
-  const MI_LAT = [42.0, 42.0, 41.8, 41.7, 41.8, 42.1, 43.0, 43.5, 43.9, 43.8, 44.1, 44.0, 44.0, 44.5, 45.4, 45.8, 45.9, 44.5, 44.0, 43.0, 42.0];
-
-  // drawSvgPath places SVG origin at (x, y) in PDF coords; SVG y increases downward.
-  function drawMiInset(page, font, cx, cy, sz, hiB) {
+  // QR code block — renders a QR code for the app URL in the PDF title block.
+  // Uses qrcode-generator: qrcode(typeNumber=0=auto, errorCorrectionLevel)
+  function drawQrBlock(page, font, x, y, sz, url) {
     const { rgb } = PDFLib;
-    const lngMin=-87.3, lngMax=-82.0, latMin=41.6, latMax=46.1;
-    const scale = Math.min(sz/(lngMax-lngMin), sz/(latMax-latMin));
-    const lpW=(lngMax-lngMin)*scale, lpH=(latMax-latMin)*scale;
-    const ox=(sz-lpW)/2, oy=(sz-lpH)/2;
-    const px=cx-sz/2, py=cy+sz/2;   // SVG origin = top-left of inset box in PDF coords
-    const tx = lng => ox + (lng-lngMin)*scale;
-    const ty = lat => oy + (latMax-lat)*scale;  // y-down
-
-    let path = `M ${tx(MI_LNG[0]).toFixed(1)} ${ty(MI_LAT[0]).toFixed(1)}`;
-    for (let i=1; i<MI_LNG.length; i++) path += ` L ${tx(MI_LNG[i]).toFixed(1)} ${ty(MI_LAT[i]).toFixed(1)}`;
-    path += ' Z';
-    page.drawSvgPath(path, {x:px, y:py, color:rgb(0.58,0.68,0.48), borderColor:rgb(0.28,0.38,0.20), borderWidth:0.6});
-
-    // Red box for the print area
-    const hx1=tx(hiB.getWest()), hx2=tx(hiB.getEast());
-    const hy1=ty(hiB.getNorth()), hy2=ty(hiB.getSouth());
-    const hiPath = `M ${hx1} ${hy1} L ${hx2} ${hy1} L ${hx2} ${hy2} L ${hx1} ${hy2} Z`;
-    page.drawSvgPath(hiPath, {x:px, y:py, color:rgb(0.85,0.1,0.1), opacity:0.85, borderColor:rgb(0.6,0,0), borderWidth:0.8});
-    page.drawText('MI', {x:cx-4, y:cy-sz/2-10, size:7, font, color:rgb(0.28,0.38,0.20)});
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      const mc  = qr.getModuleCount();
+      const mod = sz / mc;
+      // White background
+      page.drawRectangle({x, y, width: sz, height: sz, color: rgb(1,1,1)});
+      for (let r = 0; r < mc; r++) {
+        for (let c = 0; c < mc; c++) {
+          if (qr.isDark(r, c)) {
+            page.drawRectangle({
+              x: x + c * mod,
+              y: y + (mc - 1 - r) * mod,   // PDF coords: y increases upward
+              width:  mod + 0.3,             // slight overdraw to avoid gaps
+              height: mod + 0.3,
+              color: rgb(0, 0, 0),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback: just label the zone if qrcode-generator isn't loaded
+      page.drawText(url, {x: x+2, y: y + sz/2, size: 5, font, color: rgb(0.3,0.3,0.3)});
+    }
+    page.drawText('Scan for live map', {x: x - 2, y: y - 10, size: 6, font, color: rgb(0.4,0.4,0.4)});
   }
 
   function drawNArrow(page, font, cx, cy, sz) {
@@ -3775,23 +3780,47 @@
     page.drawText('N', {x:cx-4, y:cy+hs+5, size:10, font, color:rgb(0.1,0.1,0.1)});
   }
 
+  // Dual scale bar: metric (top) + yards/miles (bottom).
+  // x,y is the bottom-left corner of the lower bar.
   function drawScaleBar(page, font, x, y, bounds, mapPtW) {
     const { rgb } = PDFLib;
-    const lat = (bounds.getNorth()+bounds.getSouth())/2;
-    const kmTotal = (bounds.getEast()-bounds.getWest()) * 6371 * Math.cos(lat*Math.PI/180) * Math.PI/180;
-    const miTotal = kmTotal * 0.621371;
-    const target  = miTotal * 0.22;
-    const mag     = Math.pow(10, Math.floor(Math.log10(target || 1)));
-    const nice    = [1,2,5,10].map(n=>n*mag).find(n=>n>=target*0.6) || mag;
-    const barW    = (nice/miTotal)*mapPtW;
-    const barH    = 5;
-    page.drawRectangle({x, y, width:barW/2, height:barH, color:rgb(0.1,0.1,0.1)});
-    page.drawRectangle({x:x+barW/2, y, width:barW/2, height:barH, color:rgb(0.94,0.94,0.94),
+    const lat    = (bounds.getNorth() + bounds.getSouth()) / 2;
+    const mTotal = (bounds.getEast() - bounds.getWest()) * 6371000 * Math.cos(lat * Math.PI / 180) * Math.PI / 180;
+
+    function niceBar(total, targetFrac) {
+      const t   = total * targetFrac;
+      const mag = Math.pow(10, Math.floor(Math.log10(t || 1)));
+      return [1,2,5,10].map(n => n * mag).find(n => n >= t * 0.6) || mag;
+    }
+
+    const barH = 5;
+    const gap  = 11; // vertical gap between the two bars
+
+    // ── Metric bar (top) ──
+    const mNice = niceBar(mTotal, 0.25);
+    const mW    = (mNice / mTotal) * mapPtW;
+    const mLbl  = mNice >= 1000 ? `${mNice/1000} km` : `${mNice} m`;
+    const yM    = y + gap + barH;
+    page.drawRectangle({x, y:yM, width:mW/2, height:barH, color:rgb(0.1,0.1,0.1)});
+    page.drawRectangle({x:x+mW/2, y:yM, width:mW/2, height:barH,
+      color:rgb(0.94,0.94,0.94), borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
+    page.drawRectangle({x, y:yM, width:mW, height:barH,
       borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
-    page.drawRectangle({x, y, width:barW, height:barH, borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
-    page.drawText('0',  {x, y:y+barH+2, size:7, font, color:rgb(0.15,0.15,0.15)});
-    const lbl = nice >= 1 ? `${nice} mi` : `${Math.round(nice*5280)} ft`;
-    page.drawText(lbl, {x:x+barW-12, y:y+barH+2, size:7, font, color:rgb(0.15,0.15,0.15)});
+    page.drawText('0',   {x, y:yM+barH+2, size:6.5, font, color:rgb(0.15,0.15,0.15)});
+    page.drawText(mLbl,  {x:x+mW-8, y:yM+barH+2, size:6.5, font, color:rgb(0.15,0.15,0.15)});
+
+    // ── Yards / miles bar (bottom) ──
+    const ydTotal = mTotal * 1.09361;
+    const ydNice  = niceBar(ydTotal, 0.25);
+    const ydW     = (ydNice / ydTotal) * mapPtW;
+    const ydLbl   = ydNice >= 1760 ? `${(ydNice/1760).toFixed(ydNice >= 3520 ? 0 : 1)} mi` : `${ydNice} yd`;
+    page.drawRectangle({x, y, width:ydW/2, height:barH, color:rgb(0.1,0.1,0.1)});
+    page.drawRectangle({x:x+ydW/2, y, width:ydW/2, height:barH,
+      color:rgb(0.94,0.94,0.94), borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
+    page.drawRectangle({x, y, width:ydW, height:barH,
+      borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
+    page.drawText('0',   {x, y:y-9, size:6.5, font, color:rgb(0.15,0.15,0.15)});
+    page.drawText(ydLbl, {x:x+ydW-8, y:y-9, size:6.5, font, color:rgb(0.15,0.15,0.15)});
   }
 
   document.getElementById('print-generate-btn').addEventListener('click', async () => {
@@ -4080,10 +4109,11 @@
       page.drawRectangle({x:0, y:0, width:pageW, height:titleH, color:rgb(0.96,0.94,0.90)});
       page.drawLine({start:{x:0,y:titleH}, end:{x:pageW,y:titleH}, thickness:2, color:rgb(0.15,0.15,0.15)});
 
-      // Left zone: Michigan inset
-      const insetSz=64, insetCx=52, insetCy=titleH/2;
-      drawMiInset(page, font, insetCx, insetCy, insetSz, printBounds);
-      page.drawLine({start:{x:112,y:6}, end:{x:112,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
+      // Left zone: QR code linking to the live map
+      const qrSz = 70, qrX = 10, qrY = 11;
+      drawQrBlock(page, font, qrX, qrY, qrSz, 'https://karl-dykema.github.io/fieldMap');
+      page.drawLine({start:{x:qrX+qrSz+8, y:6}, end:{x:qrX+qrSz+8, y:titleH-6},
+        thickness:0.5, color:rgb(0.72,0.70,0.65)});
 
       // Center zone: title + subtitle + coord note
       const tSize = titleText.length > 20 ? 16 : titleText.length > 12 ? 20 : 24;
@@ -4091,12 +4121,12 @@
       page.drawText(titleText, {x:(pageW-tW)/2, y:titleH*0.58, size:tSize, font:fontB, color:rgb(0.08,0.08,0.10)});
       const sW = font.widthOfTextAtSize(subText, 12);
       page.drawText(subText, {x:(pageW-sW)/2, y:titleH*0.28, size:12, font, color:rgb(0.35,0.35,0.38)});
-      page.drawText(`WGS 1984  ·  ${W.toFixed(4)}°W  ${S.toFixed(4)}°N`, {x:118, y:7, size:7, font, color:rgb(0.52,0.52,0.54)});
+      page.drawText(`WGS 1984  ·  ${S.toFixed(5)}°N  ${Math.abs(W).toFixed(5)}°W  –  ${N.toFixed(5)}°N  ${Math.abs(E).toFixed(5)}°W`, {x:qrX+qrSz+14, y:7, size:6.5, font, color:rgb(0.52,0.52,0.54)});
 
       // Right zone: north arrow + scale bar
       page.drawLine({start:{x:pageW-102,y:6}, end:{x:pageW-102,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
       drawNArrow(page, font, pageW-60, titleH*0.52, 22);
-      drawScaleBar(page, font, pageW-100, titleH*0.30, expanded, mW);
+      drawScaleBar(page, font, pageW-110, titleH*0.30, expanded, mW);
 
       // ── OGC LGIDict (Avenza) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia, Guru Maps) ──
       const ctx = pdfDoc.context;
