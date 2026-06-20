@@ -3780,37 +3780,21 @@
     const availW = pageW;
     const availH = pageH - titleH;
 
-    // Use the user's exact bbox — never stretch or expand it
-    const bounds = printBounds;
-    const W=bounds.getWest(), E=bounds.getEast(), S=bounds.getSouth(), N=bounds.getNorth();
+    // Expand bbox to fill the page in Mercator proportions (no letterboxing)
+    const expanded = fitBboxToAspect(printBounds, availW, availH);
+    const W=expanded.getWest(), E=expanded.getEast(), S=expanded.getSouth(), N=expanded.getNorth();
 
-    // Geographic aspect ratio accounting for cos(lat) — this is the "true" width/height ratio
-    const cosLat    = Math.cos(((N+S)/2) * Math.PI / 180);
-    const geoAspect = ((E-W) * cosLat) / (N-S);  // > 1 = wider than tall
-
-    // Fit map image within available space maintaining correct geographic ratio
-    let mapPtW, mapPtH;
-    if (geoAspect > availW / availH) {
-      mapPtW = availW;
-      mapPtH = Math.round(availW / geoAspect);
-    } else {
-      mapPtH = availH;
-      mapPtW = Math.round(availH * geoAspect);
-    }
-    // Center the map within the available space
-    const mapPtX = Math.round((availW - mapPtW) / 2);
-    const mapPtY = titleH + Math.round((availH - mapPtH) / 2);
-
-    // Pixel dimensions for image fetch (DPI-scaled from PDF points)
-    const mapPxW = Math.min(4096, Math.round(mapPtW * dpi / 72));
-    const mapPxH = Math.min(4096, Math.round(mapPtH * dpi / 72));
+    // Pixel dimensions for image fetch — full page at requested DPI
+    const mapPxW = Math.min(4096, Math.round(availW * dpi / 72));
+    const mapPxH = Math.min(4096, Math.round(availH * dpi / 72));
     const bbox = `${W},${S},${E},${N}`;
     const sz   = `${mapPxW},${mapPxH}`;
 
+    // imageSR=102100 = Web Mercator — same projection as Leaflet; features look identical to the map
     const BASE_URLS = {
-      satellite: `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png32&f=image`,
-      topo:      `https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png32&f=image`,
-      naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png&f=image`,
+      satellite: `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
+      topo:      `https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
+      naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png&f=image`,
     };
 
     // Active raster overlays
@@ -3830,6 +3814,17 @@
       ]);
       if (!baseBytes) throw new Error('Base imagery failed to load');
 
+      // If the server returned a different size than requested, fit to actual image ratio
+      let mW=availW, mH=availH, mX=0, mY=titleH;
+      const dims = pngDims(baseBytes);
+      if (dims && Math.abs(dims.w/dims.h - mapPxW/mapPxH) > 0.02) {
+        const ar = dims.w / dims.h;
+        if (ar > availW/availH) { mW=availW; mH=Math.round(availW/ar); }
+        else                    { mH=availH; mW=Math.round(availH*ar); }
+        mX = Math.round((availW-mW)/2);
+        mY = titleH + Math.round((availH-mH)/2);
+      }
+
       btn.textContent = 'Building PDF…';
       const { PDFDocument, PDFName, PDFString, StandardFonts, rgb } = PDFLib;
       const pdfDoc = await PDFDocument.create();
@@ -3837,24 +3832,25 @@
       const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const fontB  = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-      // Background for areas outside the map image (letterbox margins)
-      page.drawRectangle({x:0, y:titleH, width:availW, height:availH, color:rgb(0.15,0.15,0.16)});
+      // Dark fill only appears if the server capped image size (rare)
+      if (mW < availW || mH < availH)
+        page.drawRectangle({x:0, y:titleH, width:availW, height:availH, color:rgb(0.15,0.15,0.16)});
 
       // ── Map imagery ──
       const baseImg = await embedAnyImg(pdfDoc, baseBytes);
-      if (baseImg) page.drawImage(baseImg, {x:mapPtX, y:mapPtY, width:mapPtW, height:mapPtH});
+      if (baseImg) page.drawImage(baseImg, {x:mX, y:mY, width:mW, height:mH});
 
       for (const bytes of ovBytes) {
         if (!bytes) continue;
         try {
           const img = await embedAnyImg(pdfDoc, bytes);
-          if (img) page.drawImage(img, {x:mapPtX, y:mapPtY, width:mapPtW, height:mapPtH});
+          if (img) page.drawImage(img, {x:mX, y:mY, width:mW, height:mH});
         } catch {}
       }
 
       // ── FSVeg vector polygons (re-query for print bbox) ──
-      // SVG coords: origin at (mapPtX, mapPtY+mapPtH) = top-left of map in PDF space;
-      // SVG y increases downward → south = mapPtH, north = 0.
+      // SVG coords: origin at (mX, mY+mH) = top-left of map in PDF space;
+      // SVG y increases downward → south = mH, north = 0.
       if (fsvegEnabled) {
         const q = new URLSearchParams({geometry:bbox, geometryType:'esriGeometryEnvelope',
           inSR:'4326', spatialRel:'esriSpatialRelIntersects',
@@ -3867,12 +3863,12 @@
             for (const ring of (feat.geometry.rings||[])) {
               if (ring.length < 3) continue;
               const pts = ring.map(([lng,lat]) => [
-                ((lng-W)/(E-W)*mapPtW).toFixed(1),
-                ((N-lat)/(N-S)*mapPtH).toFixed(1),
+                ((lng-W)/(E-W)*mW).toFixed(1),
+                ((N-lat)/(N-S)*mH).toFixed(1),
               ]);
               let path = `M ${pts[0][0]} ${pts[0][1]}`;
               for (let i=1;i<pts.length;i++) path += ` L ${pts[i][0]} ${pts[i][1]}`;
-              page.drawSvgPath(path+' Z', {x:mapPtX, y:mapPtY+mapPtH,
+              page.drawSvgPath(path+' Z', {x:mX, y:mY+mH,
                 color:rgb(fr,fg,fb), opacity:0.5,
                 borderColor:rgb(...hexRgb01(c.stroke)), borderWidth:0.6});
             }
@@ -3881,7 +3877,7 @@
       }
 
       // ── Map border ──
-      page.drawRectangle({x:mapPtX, y:mapPtY, width:mapPtW, height:mapPtH,
+      page.drawRectangle({x:mX, y:mY, width:mW, height:mH,
         borderColor:rgb(0.15,0.15,0.15), borderWidth:1.5});
 
       // ── Title block background + separator ──
@@ -3890,7 +3886,7 @@
 
       // Left zone: Michigan inset
       const insetSz=64, insetCx=52, insetCy=titleH/2;
-      drawMiInset(page, font, insetCx, insetCy, insetSz, bounds);
+      drawMiInset(page, font, insetCx, insetCy, insetSz, printBounds);
       page.drawLine({start:{x:112,y:6}, end:{x:112,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
 
       // Center zone: title + subtitle + coord note
@@ -3904,26 +3900,26 @@
       // Right zone: north arrow + scale bar
       page.drawLine({start:{x:pageW-102,y:6}, end:{x:pageW-102,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
       drawNArrow(page, font, pageW-60, titleH*0.52, 22);
-      drawScaleBar(page, font, pageW-100, titleH*0.30, bounds, mapPtW);
+      drawScaleBar(page, font, pageW-100, titleH*0.30, expanded, mW);
 
       // ── OGC LGIDict (Avenza) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia, Guru Maps) ──
       const ctx = pdfDoc.context;
       const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.24'),
+        Version:      PDFString.of('2.25'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
-          mapPtX,        mapPtY,
-          mapPtX+mapPtW, mapPtY,
-          mapPtX+mapPtW, mapPtY+mapPtH,
-          mapPtX,        mapPtY+mapPtH,
+          mX,    mY,
+          mX+mW, mY,
+          mX+mW, mY+mH,
+          mX,    mY+mH,
         ]),
         Registration: ctx.obj([
-          [mapPtX,        mapPtY,        W, S],
-          [mapPtX+mapPtW, mapPtY,        E, S],
-          [mapPtX+mapPtW, mapPtY+mapPtH, E, N],
-          [mapPtX,        mapPtY+mapPtH, W, N],
+          [mX,    mY,    W, S],
+          [mX+mW, mY,    E, S],
+          [mX+mW, mY+mH, E, N],
+          [mX,    mY+mH, W, N],
         ]),
         Projection: ctx.obj({
           Type:           PDFName.of('Projection'),
@@ -3935,7 +3931,7 @@
       // ISO 32000 VP/Measure — GPTS: [lat,lon] pairs for BL, BR, TR, TL corners
       page.node.set(PDFName.of('VP'), ctx.obj([{
         Type:    PDFName.of('Viewport'),
-        BBox:    ctx.obj([mapPtX, mapPtY, mapPtX+mapPtW, mapPtY+mapPtH]),
+        BBox:    ctx.obj([mX, mY, mX+mW, mY+mH]),
         Name:    PDFString.of(titleText),
         Measure: ctx.obj({
           Type:    PDFName.of('Measure'),
