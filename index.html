@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.29</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.30</div>
   </div>
 
   <div class="section">
@@ -3558,7 +3558,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.29'),
+          Version:      PDFString.of('2.30'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3781,23 +3781,25 @@
   }
 
   // Dual scale bar: metric (top) + yards/miles (bottom).
-  // x,y is the bottom-left corner of the lower bar.
-  function drawScaleBar(page, font, x, y, bounds, mapPtW) {
+  // x,y = bottom-left of the lower bar. maxW = max bar width in PDF pts.
+  function drawScaleBar(page, font, x, y, bounds, mapPtW, maxW) {
     const { rgb } = PDFLib;
+    maxW = maxW || 90;
     const lat    = (bounds.getNorth() + bounds.getSouth()) / 2;
     const mTotal = (bounds.getEast() - bounds.getWest()) * 6371000 * Math.cos(lat * Math.PI / 180) * Math.PI / 180;
 
-    function niceBar(total, targetFrac) {
-      const t   = total * targetFrac;
-      const mag = Math.pow(10, Math.floor(Math.log10(t || 1)));
-      return [1,2,5,10].map(n => n * mag).find(n => n >= t * 0.6) || mag;
+    // Largest nice value whose bar fits within maxW pts.
+    function niceBar(total) {
+      const maxDist = (maxW / mapPtW) * total;
+      const mag = Math.pow(10, Math.floor(Math.log10(maxDist || 1)));
+      return [5,2,1].map(n => n * mag).find(n => n <= maxDist) || mag / 10;
     }
 
     const barH = 5;
-    const gap  = 11; // vertical gap between the two bars
+    const gap  = 11;
 
     // ── Metric bar (top) ──
-    const mNice = niceBar(mTotal, 0.25);
+    const mNice = niceBar(mTotal);
     const mW    = (mNice / mTotal) * mapPtW;
     const mLbl  = mNice >= 1000 ? `${mNice/1000} km` : `${mNice} m`;
     const yM    = y + gap + barH;
@@ -3806,21 +3808,21 @@
       color:rgb(0.94,0.94,0.94), borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
     page.drawRectangle({x, y:yM, width:mW, height:barH,
       borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
-    page.drawText('0',   {x, y:yM+barH+2, size:6.5, font, color:rgb(0.15,0.15,0.15)});
-    page.drawText(mLbl,  {x:x+mW-8, y:yM+barH+2, size:6.5, font, color:rgb(0.15,0.15,0.15)});
+    page.drawText('0',  {x, y:yM+barH+2, size:6.5, font, color:rgb(0.15,0.15,0.15)});
+    page.drawText(mLbl, {x:x+mW+2, y:yM+barH+2, size:6.5, font, color:rgb(0.15,0.15,0.15)});
 
     // ── Yards / miles bar (bottom) ──
     const ydTotal = mTotal * 1.09361;
-    const ydNice  = niceBar(ydTotal, 0.25);
+    const ydNice  = niceBar(ydTotal);
     const ydW     = (ydNice / ydTotal) * mapPtW;
-    const ydLbl   = ydNice >= 1760 ? `${(ydNice/1760).toFixed(ydNice >= 3520 ? 0 : 1)} mi` : `${ydNice} yd`;
+    const ydLbl   = ydNice >= 1760 ? `${(ydNice / 1760).toFixed(ydNice >= 3520 ? 0 : 1)} mi` : `${ydNice} yd`;
     page.drawRectangle({x, y, width:ydW/2, height:barH, color:rgb(0.1,0.1,0.1)});
     page.drawRectangle({x:x+ydW/2, y, width:ydW/2, height:barH,
       color:rgb(0.94,0.94,0.94), borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
     page.drawRectangle({x, y, width:ydW, height:barH,
       borderColor:rgb(0.1,0.1,0.1), borderWidth:0.5});
     page.drawText('0',   {x, y:y-9, size:6.5, font, color:rgb(0.15,0.15,0.15)});
-    page.drawText(ydLbl, {x:x+ydW-8, y:y-9, size:6.5, font, color:rgb(0.15,0.15,0.15)});
+    page.drawText(ydLbl, {x:x+ydW+2, y:y-9, size:6.5, font, color:rgb(0.15,0.15,0.15)});
   }
 
   document.getElementById('print-generate-btn').addEventListener('click', async () => {
@@ -4123,10 +4125,13 @@
       page.drawText(subText, {x:(pageW-sW)/2, y:titleH*0.28, size:12, font, color:rgb(0.35,0.35,0.38)});
       page.drawText(`WGS 1984  ·  ${S.toFixed(5)}°N  ${Math.abs(W).toFixed(5)}°W  –  ${N.toFixed(5)}°N  ${Math.abs(E).toFixed(5)}°W`, {x:qrX+qrSz+14, y:7, size:6.5, font, color:rgb(0.52,0.52,0.54)});
 
-      // Right zone: north arrow + scale bar
-      page.drawLine({start:{x:pageW-102,y:6}, end:{x:pageW-102,y:titleH-6}, thickness:0.5, color:rgb(0.72,0.70,0.65)});
-      drawNArrow(page, font, pageW-60, titleH*0.52, 22);
-      drawScaleBar(page, font, pageW-110, titleH*0.30, expanded, mW);
+      // Right zone: north arrow (far right) + scale bar (to its left)
+      const rightZoneW = 140;
+      const rxDiv = pageW - rightZoneW;
+      page.drawLine({start:{x:rxDiv, y:6}, end:{x:rxDiv, y:titleH-6},
+        thickness:0.5, color:rgb(0.72,0.70,0.65)});
+      drawNArrow(page, font, pageW - 26, titleH * 0.52, 20);
+      drawScaleBar(page, font, rxDiv + 6, titleH * 0.38, expanded, mW, rightZoneW - 52);
 
       // ── OGC LGIDict (Avenza) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia, Guru Maps) ──
       const ctx = pdfDoc.context;
