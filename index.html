@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.30</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.31</div>
   </div>
 
   <div class="section">
@@ -780,6 +780,9 @@
     </label>
     <label class="radio-item">
       <input type="radio" name="base" value="naip"> NAIP (USDA)
+    </label>
+    <label class="radio-item">
+      <input type="radio" name="base" value="usgs"> USGS Ortho
     </label>
     <label class="radio-item">
       <input type="radio" name="base" value="topo"> Topo
@@ -1194,6 +1197,7 @@
       <option value="satellite">ESRI Satellite</option>
       <option value="topo">ESRI Topo</option>
       <option value="naip">NAIP (USDA)</option>
+      <option value="usgs">USGS Ortho</option>
     </select>
   </div>
   <div class="print-btn-row">
@@ -1263,6 +1267,10 @@
     naip: L.tileLayer('https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}', {
       attribution: 'NAIP imagery © USDA FSA',
       maxZoom: 17
+    }),
+    usgs: L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'USGS National Map',
+      maxZoom: 16
     }),
     topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles © Esri',
@@ -1352,6 +1360,10 @@
           badge.textContent = 'NAIP imagery';
           badge.style.display = '';
         }
+
+      } else if (currentBaseKey === 'usgs') {
+        badge.textContent = 'USGS Ortho (GPS-accurate)';
+        badge.style.display = '';
 
       } else {
         badge.style.display = 'none';
@@ -3859,6 +3871,7 @@
       satellite: `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
       topo:      `https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
       naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png&f=image`,
+      usgs:      `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
     };
 
     // Active raster overlays — fetched in layer order (bottom to top)
