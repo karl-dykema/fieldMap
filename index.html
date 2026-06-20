@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.26</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.27</div>
   </div>
 
   <div class="section">
@@ -3557,7 +3557,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.26'),
+          Version:      PDFString.of('2.27'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3686,6 +3686,39 @@
     return { w: v.getUint32(16), h: v.getUint32(20) };
   }
 
+  // Draw a single GeoJSON Polygon/MultiPolygon/LineString/MultiLineString into the print PDF.
+  function drawGeoFeature(page, feature, fillHex, fillOp, strokeHex, strokeW, W, E, N, S, mW, mH, mX, mY) {
+    const { rgb } = PDFLib;
+    const geom = feature?.geometry || feature;
+    if (!geom) return;
+    const isLine = geom.type === 'LineString' || geom.type === 'MultiLineString';
+    const rawRings = geom.type === 'Polygon'      ? geom.coordinates
+                   : geom.type === 'MultiPolygon' ? geom.coordinates.flat(1)
+                   : geom.type === 'LineString'   ? [geom.coordinates]
+                   : geom.type === 'MultiLineString' ? geom.coordinates : [];
+    for (const ring of rawRings) {
+      if (!ring || ring.length < 2) continue;
+      const pts = ring.map(([lng, lat]) => [
+        ((lng - W) / (E - W) * mW).toFixed(1),
+        ((N - lat) / (N - S) * mH).toFixed(1),
+      ]);
+      let path = `M ${pts[0][0]} ${pts[0][1]}`;
+      for (let i = 1; i < pts.length; i++) path += ` L ${pts[i][0]} ${pts[i][1]}`;
+      const opts = { x: mX, y: mY + mH };
+      if (strokeHex && strokeW > 0) {
+        const [sr,sg,sb] = hexRgb01(strokeHex.slice(0,7));
+        opts.borderColor = rgb(sr,sg,sb);
+        opts.borderWidth = strokeW;
+      }
+      if (!isLine && fillHex) {
+        const [fr,fg,fb] = hexRgb01(fillHex.slice(0,7));
+        opts.color   = rgb(fr,fg,fb);
+        opts.opacity = fillOp ?? 0.35;
+      }
+      try { page.drawSvgPath(isLine ? path : path + ' Z', opts); } catch {}
+    }
+  }
+
   function hexRgb01(hex) {
     const h = hex.replace('#', '');
     return [parseInt(h.slice(0,2),16)/255, parseInt(h.slice(2,4),16)/255, parseInt(h.slice(4,6),16)/255];
@@ -3797,14 +3830,20 @@
       naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png&f=image`,
     };
 
-    // Active raster overlays
+    // Active raster overlays — fetched in layer order (bottom to top)
     const overlayFetches = [];
     if (document.getElementById('chk-nlcd').checked)
       overlayFetches.push(fetchLayerBytes(`https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms?service=WMS&version=1.1.1&request=GetMap&layers=NLCD_2021_Land_Cover_L48&bbox=${bbox}&width=${mapPxW}&height=${mapPxH}&srs=EPSG:4326&format=image/png&transparent=true`));
     if (document.getElementById('chk-wetlands').checked)
-      overlayFetches.push(fetchLayerBytes(`https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png32&transparent=true&f=image`));
+      overlayFetches.push(fetchLayerBytes(`https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&transparent=true&f=image`));
     if (document.getElementById('chk-fbfm').checked)
-      overlayFetches.push(fetchLayerBytes(`https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${sz}&format=png&transparent=true&f=image`));
+      overlayFetches.push(fetchLayerBytes(`https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png&transparent=true&f=image`));
+    if (document.getElementById('chk-soils').checked)
+      overlayFetches.push(fetchLayerBytes(`${COUNTY_MS}/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&layers=show:32&format=png32&transparent=true&f=image`));
+    if (document.getElementById('chk-contours').checked)
+      overlayFetches.push(fetchLayerBytes(`${COUNTY_MS}/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&layers=show:16,25&format=png32&transparent=true&f=image`));
+    if (document.getElementById('chk-roads').checked)
+      overlayFetches.push(fetchLayerBytes(`${COUNTY_MS}/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&layers=show:5&format=png32&transparent=true&f=image`));
 
     try {
       btn.textContent = 'Fetching imagery…';
@@ -3874,6 +3913,76 @@
             }
           }
         } catch {}
+      }
+
+      // ── Vector layers (in draw order: areas → lines → points) ──
+
+      // Pre-settlement vegetation
+      if (document.getElementById('chk-veg').checked && vegLayer) {
+        vegLayer.eachFeature(l => {
+          const ct = l.feature?.properties?.COVERTYPE;
+          drawGeoFeature(page, l.feature, VEG_COLORS[ct] || '#aaaaaa', 0.7,
+            '#333333', 0.4, W, E, N, S, mW, mH, mX, mY);
+        });
+      }
+
+      // Electric service areas
+      if (document.getElementById('chk-elec-areas').checked) {
+        elecAreasLayer.eachFeature(l => {
+          const c = ELEC_TYPE_COLORS[l.feature?.properties?.Type] || '#667788';
+          drawGeoFeature(page, l.feature, c, 0.08, c, 1, W, E, N, S, mW, mH, mX, mY);
+        });
+      }
+
+      // Public lands
+      if (document.getElementById('chk-public-lands').checked && publicLandsLayer) {
+        publicLandsLayer.eachLayer(l => {
+          const cat = l.feature?.properties?._cat;
+          const cfg = PL_CFG[cat] || {};
+          drawGeoFeature(page, l.feature, cfg.fill || '#777', 0.38,
+            cfg.border || '#555', 1, W, E, N, S, mW, mH, mX, mY);
+        });
+      }
+
+      // Parcels (outlines only — yellow, thin)
+      if (document.getElementById('chk-parcels').checked && featureCache.size) {
+        for (const f of featureCache.values()) {
+          drawGeoFeature(page, f, null, 0, '#ccaa00', 0.6, W, E, N, S, mW, mH, mX, mY);
+        }
+      }
+
+      // Electric transmission lines
+      if (document.getElementById('chk-elec-transm').checked) {
+        elecTransmLayer.eachFeature(l => {
+          const vc = (l.feature?.properties?.VOLT_CLASS || 'NOT AVAILABLE').trim();
+          drawGeoFeature(page, l.feature, null, 0, VOLT_COLORS[vc] || '#667788',
+            2, W, E, N, S, mW, mH, mX, mY);
+        });
+      }
+
+      // iNaturalist observations (circles per active species)
+      {
+        const { rgb } = PDFLib;
+        inatSpec.forEach(([key, , color]) => {
+          if (!document.getElementById(`chk-inat-${key}`)?.checked) return;
+          const obs = inatCache[key]?.observations || [];
+          const [cr,cg,cb] = hexRgb01(color);
+          for (const o of obs) {
+            const coords = o.geojson?.coordinates;
+            if (!coords) continue;
+            const [lng, lat] = coords;
+            if (lng < W || lng > E || lat < S || lat > N) continue;
+            const px = mX + (lng - W) / (E - W) * mW;
+            const py = mY + (N - lat) / (N - S) * mH;
+            try {
+              page.drawSvgPath('M -5 0 A 5 5 0 1 0 5 0 A 5 5 0 1 0 -5 0 Z', {
+                x: px, y: py,
+                color: rgb(cr,cg,cb), opacity: 0.85,
+                borderColor: rgb(cr*0.6, cg*0.6, cb*0.6), borderWidth: 0.8,
+              });
+            } catch {}
+          }
+        });
       }
 
       // ── User annotations ──
