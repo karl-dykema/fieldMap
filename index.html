@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.31</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.32</div>
   </div>
 
   <div class="section">
@@ -2703,6 +2703,7 @@
     map.stopLocate();
     locWatching = false; locFirstFix = false; smoothedPos = null;
     locBtn.classList.remove('active'); locBtn.innerHTML = '⊕';
+    if (gpsDebugBadge._div) gpsDebugBadge._div.style.display = 'none';
     locAvgBtn.classList.remove('visible', 'averaging');
     if (locAvgInterval) { clearInterval(locAvgInterval); locAvgInterval = null; }
     locAveraging = false;
@@ -2776,8 +2777,26 @@
   });
   map.addControl(new LocControl());
 
+  // GPS debug badge — shows raw coordinates for comparison with Google Maps
+  const gpsDebugBadge = L.control({ position: 'bottomleft' });
+  gpsDebugBadge.onAdd = function() {
+    this._div = L.DomUtil.create('div');
+    this._div.style.cssText =
+      'background:rgba(0,0,0,0.65);color:#fff;padding:4px 8px;font-size:11px;font-family:monospace;' +
+      'border-radius:3px;display:none;line-height:1.6;pointer-events:none';
+    return this._div;
+  };
+  gpsDebugBadge.addTo(map);
+
   map.on('locationfound', e => {
     if (!locWatching) return;
+    // Always show raw fix in debug badge (even if below accuracy threshold)
+    if (gpsDebugBadge._div) {
+      gpsDebugBadge._div.innerHTML =
+        `RAW GPS: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}<br>` +
+        `acc ±${Math.round(e.accuracy)}m`;
+      gpsDebugBadge._div.style.display = '';
+    }
     if (e.accuracy > LOC_ACC_THRESH) return;   // discard poor fixes
 
     // EMA smoothing
