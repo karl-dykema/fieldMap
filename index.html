@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.32</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.33</div>
   </div>
 
   <div class="section">
@@ -4166,11 +4166,24 @@
       drawScaleBar(page, font, rxDiv + 6, titleH * 0.38, expanded, mW, rightZoneW - 52);
 
       // ── OGC LGIDict (Avenza) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia, Guru Maps) ──
+      // The image is fetched in Web Mercator (imageSR=102100). Pixel↔coord mapping is linear
+      // in Mercator x/y, NOT in WGS84 lat/lon (Mercator y = R·ln(tan(π/4+lat/2)) is non-linear).
+      // Specifying GEOGRAPHIC+WGS84 corners causes Avenza to do a linear lat/lon interpolation
+      // that drifts ~120m at map centre for a typical 1-mile view at 43.5°N.
+      // Fix: declare Web Mercator projection and give Mercator metre coordinates as control points.
+      const R_MERC = 6378137;
+      const toMX = lng => lng * Math.PI / 180 * R_MERC;
+      const toMY = lat => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * R_MERC;
+      const mW_  = toMX(W),  mE_  = toMX(E);
+      const mS_  = toMY(S),  mN_  = toMY(N);
+      // Centre control point eliminates residual quadratic error for VP/Measure apps
+      const mCX_ = toMX((W+E)/2), mCY_ = toMY((S+N)/2);
+
       const ctx = pdfDoc.context;
-      const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
+      const epsg3857Wkt = 'PROJCS["WGS 84 / Pseudo-Mercator",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Mercator_1SP"],PARAMETER["central_meridian",0],PARAMETER["scale_factor",1],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1],AUTHORITY["EPSG","3857"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.25'),
+        Version:      PDFString.of('2.33'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           mX,    mY,
@@ -4179,19 +4192,27 @@
           mX,    mY+mH,
         ]),
         Registration: ctx.obj([
-          [mX,    mY,    W, S],
-          [mX+mW, mY,    E, S],
-          [mX+mW, mY+mH, E, N],
-          [mX,    mY+mH, W, N],
+          [mX,         mY,         mW_,  mS_],
+          [mX+mW,      mY,         mE_,  mS_],
+          [mX+mW,      mY+mH,      mE_,  mN_],
+          [mX,         mY+mH,      mW_,  mN_],
+          [mX+mW/2,    mY+mH/2,    mCX_, mCY_],
         ]),
         Projection: ctx.obj({
-          Type:           PDFName.of('Projection'),
-          ProjectionType: PDFString.of('GEOGRAPHIC'),
-          Datum:          PDFString.of('WGS84'),
-          Units:          PDFString.of('DEGREES'),
+          Type:            PDFName.of('Projection'),
+          ProjectionType:  PDFString.of('MC'),
+          CentralMeridian: 0,
+          OriginLatitude:  0,
+          FalseEasting:    0,
+          FalseNorthing:   0,
+          Units:           PDFString.of('METERS'),
+          Datum:           PDFString.of('WGS84'),
         }),
       }));
-      // ISO 32000 VP/Measure — GPTS: [lat,lon] pairs for BL, BR, TR, TL corners
+      // ISO 32000 VP/Measure — 4 corner control points in WGS84 lat/lon.
+      // QGIS, Global Mapper, Gaia GPS etc. read the WKT and do proper CRS reprojection
+      // internally, so 4-corner WGS84 is sufficient; they don't do naive linear interpolation.
+      const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('VP'), ctx.obj([{
         Type:    PDFName.of('Viewport'),
         BBox:    ctx.obj([mX, mY, mX+mW, mY+mH]),
@@ -4207,7 +4228,7 @@
             WKT:  PDFString.of(wgs84Wkt),
           }),
         }),
-      }]));
+      }]]);
 
       const bytes = await pdfDoc.save();
       const url   = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
