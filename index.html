@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.34</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.35</div>
   </div>
 
   <div class="section">
@@ -3916,15 +3916,16 @@
       ]);
       if (!baseBytes) throw new Error('Base imagery failed to load');
 
-      // If the server returned a different size than requested, fit to actual image ratio
-      let mW=availW, mH=availH, mX=0, mY=titleH;
+      // Map occupies the bottom of the page (y=0); title block sits on top (y=availH).
+      // mY=0 means the SW georef corner is at y=0 — same structure as the leafletImage export.
+      let mW=availW, mH=availH, mX=0, mY=0;
       const dims = pngDims(baseBytes);
       if (dims && Math.abs(dims.w/dims.h - mapPxW/mapPxH) > 0.02) {
         const ar = dims.w / dims.h;
         if (ar > availW/availH) { mW=availW; mH=Math.round(availW/ar); }
         else                    { mH=availH; mW=Math.round(availH*ar); }
         mX = Math.round((availW-mW)/2);
-        mY = titleH + Math.round((availH-mH)/2);
+        mY = Math.round((availH-mH)/2);
       }
 
       btn.textContent = 'Building PDF…';
@@ -3936,7 +3937,7 @@
 
       // Dark fill only appears if the server capped image size (rare)
       if (mW < availW || mH < availH)
-        page.drawRectangle({x:0, y:titleH, width:availW, height:availH, color:rgb(0.15,0.15,0.16)});
+        page.drawRectangle({x:0, y:0, width:availW, height:availH, color:rgb(0.15,0.15,0.16)});
 
       // ── Map imagery ──
       const baseImg = await embedAnyImg(pdfDoc, baseBytes);
@@ -4140,50 +4141,42 @@
         borderColor:rgb(0.15,0.15,0.15), borderWidth:1.5});
 
       // ── Title block background + separator ──
-      page.drawRectangle({x:0, y:0, width:pageW, height:titleH, color:rgb(0.96,0.94,0.90)});
-      page.drawLine({start:{x:0,y:titleH}, end:{x:pageW,y:titleH}, thickness:2, color:rgb(0.15,0.15,0.15)});
+      // Title block sits at the TOP of the page (y=availH to y=pageH).
+      // Map occupies y=0 to y=availH so SW georef corner is at y=0.
+      const tY = availH;  // y origin of the title block
+      page.drawRectangle({x:0, y:tY, width:pageW, height:titleH, color:rgb(0.96,0.94,0.90)});
+      page.drawLine({start:{x:0,y:tY}, end:{x:pageW,y:tY}, thickness:2, color:rgb(0.15,0.15,0.15)});
 
       // Left zone: QR code linking to the live map
-      const qrSz = 70, qrX = 10, qrY = 11;
+      const qrSz = 70, qrX = 10, qrY = tY + 11;
       drawQrBlock(page, font, qrX, qrY, qrSz, 'https://karl-dykema.github.io/fieldMap');
-      page.drawLine({start:{x:qrX+qrSz+8, y:6}, end:{x:qrX+qrSz+8, y:titleH-6},
+      page.drawLine({start:{x:qrX+qrSz+8, y:tY+6}, end:{x:qrX+qrSz+8, y:tY+titleH-6},
         thickness:0.5, color:rgb(0.72,0.70,0.65)});
 
       // Center zone: title + subtitle + coord note
       const tSize = titleText.length > 20 ? 16 : titleText.length > 12 ? 20 : 24;
       const tW = fontB.widthOfTextAtSize(titleText, tSize);
-      page.drawText(titleText, {x:(pageW-tW)/2, y:titleH*0.58, size:tSize, font:fontB, color:rgb(0.08,0.08,0.10)});
+      page.drawText(titleText, {x:(pageW-tW)/2, y:tY+titleH*0.58, size:tSize, font:fontB, color:rgb(0.08,0.08,0.10)});
       const sW = font.widthOfTextAtSize(subText, 12);
-      page.drawText(subText, {x:(pageW-sW)/2, y:titleH*0.28, size:12, font, color:rgb(0.35,0.35,0.38)});
-      page.drawText(`WGS 1984  ·  ${S.toFixed(5)}°N  ${Math.abs(W).toFixed(5)}°W  –  ${N.toFixed(5)}°N  ${Math.abs(E).toFixed(5)}°W`, {x:qrX+qrSz+14, y:7, size:6.5, font, color:rgb(0.52,0.52,0.54)});
+      page.drawText(subText, {x:(pageW-sW)/2, y:tY+titleH*0.28, size:12, font, color:rgb(0.35,0.35,0.38)});
+      page.drawText(`WGS 1984  ·  ${S.toFixed(5)}°N  ${Math.abs(W).toFixed(5)}°W  –  ${N.toFixed(5)}°N  ${Math.abs(E).toFixed(5)}°W`, {x:qrX+qrSz+14, y:tY+7, size:6.5, font, color:rgb(0.52,0.52,0.54)});
 
       // Right zone: north arrow (far right) + scale bar (to its left)
       const rightZoneW = 140;
       const rxDiv = pageW - rightZoneW;
-      page.drawLine({start:{x:rxDiv, y:6}, end:{x:rxDiv, y:titleH-6},
+      page.drawLine({start:{x:rxDiv, y:tY+6}, end:{x:rxDiv, y:tY+titleH-6},
         thickness:0.5, color:rgb(0.72,0.70,0.65)});
-      drawNArrow(page, font, pageW - 26, titleH * 0.52, 20);
-      drawScaleBar(page, font, rxDiv + 6, titleH * 0.38, expanded, mW, rightZoneW - 52);
+      drawNArrow(page, font, pageW - 26, tY + titleH * 0.52, 20);
+      drawScaleBar(page, font, rxDiv + 6, tY + titleH * 0.38, expanded, mW, rightZoneW - 52);
 
       // ── OGC LGIDict (Avenza) + ISO 32000 VP/Measure (QGIS, Global Mapper, Gaia, Guru Maps) ──
-      // The image is fetched in Web Mercator (imageSR=102100). Pixel↔coord mapping is linear
-      // in Mercator x/y, NOT in WGS84 lat/lon (Mercator y = R·ln(tan(π/4+lat/2)) is non-linear).
-      // Specifying GEOGRAPHIC+WGS84 corners causes Avenza to do a linear lat/lon interpolation
-      // that drifts ~120m at map centre for a typical 1-mile view at 43.5°N.
-      // Fix: declare Web Mercator projection and give Mercator metre coordinates as control points.
-      const R_MERC = 6378137;
-      const toMX = lng => lng * Math.PI / 180 * R_MERC;
-      const toMY = lat => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * R_MERC;
-      const mW_  = toMX(W),  mE_  = toMX(E);
-      const mS_  = toMY(S),  mN_  = toMY(N);
-      // Centre control point eliminates residual quadratic error for VP/Measure apps
-      const mCX_ = toMX((W+E)/2), mCY_ = toMY((S+N)/2);
-
+      // Map occupies y=0 to y=availH (SW corner at y=0), title block above at y=availH.
+      // GEOGRAPHIC registration is accurate to <1m for typical 1–5 mile print areas.
       const ctx = pdfDoc.context;
-      const epsg3857Wkt = 'PROJCS["WGS 84 / Pseudo-Mercator",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Mercator_1SP"],PARAMETER["central_meridian",0],PARAMETER["scale_factor",1],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1],AUTHORITY["EPSG","3857"]]';
+      const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.33'),
+        Version:      PDFString.of('2.35'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           mX,    mY,
@@ -4192,27 +4185,19 @@
           mX,    mY+mH,
         ]),
         Registration: ctx.obj([
-          [mX,         mY,         mW_,  mS_],
-          [mX+mW,      mY,         mE_,  mS_],
-          [mX+mW,      mY+mH,      mE_,  mN_],
-          [mX,         mY+mH,      mW_,  mN_],
-          [mX+mW/2,    mY+mH/2,    mCX_, mCY_],
+          [mX,    mY,    W, S],
+          [mX+mW, mY,    E, S],
+          [mX+mW, mY+mH, E, N],
+          [mX,    mY+mH, W, N],
         ]),
         Projection: ctx.obj({
-          Type:            PDFName.of('Projection'),
-          ProjectionType:  PDFString.of('MC'),
-          CentralMeridian: 0,
-          OriginLatitude:  0,
-          FalseEasting:    0,
-          FalseNorthing:   0,
-          Units:           PDFString.of('METERS'),
-          Datum:           PDFString.of('WGS84'),
+          Type:           PDFName.of('Projection'),
+          ProjectionType: PDFString.of('GEOGRAPHIC'),
+          Datum:          PDFString.of('WGS84'),
+          Units:          PDFString.of('DEGREES'),
         }),
       }));
-      // ISO 32000 VP/Measure — 4 corner control points in WGS84 lat/lon.
-      // QGIS, Global Mapper, Gaia GPS etc. read the WKT and do proper CRS reprojection
-      // internally, so 4-corner WGS84 is sufficient; they don't do naive linear interpolation.
-      const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
+      // ISO 32000 VP/Measure — BBox corners in page coords, GPTS in [lat,lon] WGS84
       page.node.set(PDFName.of('VP'), ctx.obj([{
         Type:    PDFName.of('Viewport'),
         BBox:    ctx.obj([mX, mY, mX+mW, mY+mH]),
@@ -4224,7 +4209,7 @@
           GPTS:    ctx.obj([S,W, S,E, N,E, N,W]),
           LPTS:    ctx.obj([0,0, 1,0, 1,1, 0,1]),
           GCS:     ctx.obj({
-            Type: PDFName.of('PROJCS'),
+            Type: PDFName.of('GEOGCS'),
             WKT:  PDFString.of(wgs84Wkt),
           }),
         }),
