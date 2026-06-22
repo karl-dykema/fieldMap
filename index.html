@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.33</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.34</div>
   </div>
 
   <div class="section">
@@ -4228,7 +4228,7 @@
             WKT:  PDFString.of(wgs84Wkt),
           }),
         }),
-      }]]);
+      }]));
 
       const bytes = await pdfDoc.save();
       const url   = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
