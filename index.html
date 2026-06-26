@@ -1985,107 +1985,113 @@
     arrow.classList.toggle('closed', open);
   });
 
-  // Special Management Areas
-  const bneaSpecialData = [
-    { lat: 43.469, lng: -85.721, name: 'Newaygo Prairies RNA',
-      desc: '~180 acres · Management Area 8.2 (Research Natural Area) · Designated 1993 · Fire-dependent dry sand prairie; encroached by pines, oaks, and NNIP since fire exclusion.',
-      color: '#8b5cf6' },
-    { lat: 43.455, lng: -85.735, name: 'Newaygo Experimental Forest',
-      desc: '~460 acres · Management Area 8.3 (Experimental Forest) · Managed as a roaded natural setting for research activities.',
-      color: '#a78bfa' },
-    { lat: 43.462, lng: -85.752, name: 'Newaygo Prairie Ecological Study Area',
-      desc: '~80 acres · Management Area 8.4 (Special Area) · Largest single dry sand prairie remnant in the project area. One of 4 remnant prairies (~120 ac total).',
-      color: '#c4b5fd' },
-    { lat: 43.421, lng: -85.647, name: 'Croton Prairie Wildlife Emphasis Area',
-      desc: '~2,200 acres · Management Area 9.2W (Study Wild & Scenic River / Wildlife Emphasis) · Along the Little Muskegon Study Wild & Scenic River corridor in Croton Township.',
-      color: '#7c3aed' },
-  ];
+  // PLSS helper — Michigan Meridian base values (approximate)
+  // Computes section rectangle bounds given township SW corner + row/col (0=south/west)
+  function plssSecBounds(twpS, twpW, row, col) {
+    const sh = 0.01483, sw = 0.02000; // ~1 mile per section at this latitude
+    return [[twpS + row * sh, twpW + col * sw], [twpS + (row+1) * sh, twpW + (col+1) * sw]];
+  }
+  // Standard PLSS section → [row, col] lookup (row 0 = south, col 0 = west)
+  const SPLSS = {
+     1:[5,5], 2:[5,4], 3:[5,3], 4:[5,2], 5:[5,1], 6:[5,0],
+     7:[4,0], 8:[4,1], 9:[4,2],10:[4,3],11:[4,4],12:[4,5],
+    13:[3,5],14:[3,4],15:[3,3],16:[3,2],17:[3,1],18:[3,0],
+    19:[2,0],20:[2,1],21:[2,2],22:[2,3],23:[2,4],24:[2,5],
+    25:[1,5],26:[1,4],27:[1,3],28:[1,2],29:[1,1],30:[1,0],
+    31:[0,0],32:[0,1],33:[0,2],34:[0,3],35:[0,4],36:[0,5],
+  };
+  function secRect(twpS, twpW, sec, popup, style) {
+    const [r,c] = SPLSS[sec];
+    return L.rectangle(plssSecBounds(twpS, twpW, r, c), style).bindPopup(popup);
+  }
 
-  const bneaSpecialLayer = L.layerGroup(
-    bneaSpecialData.map(d =>
-      L.circleMarker([d.lat, d.lng], {
-        radius: 9, color: '#fff', weight: 1.5,
-        fillColor: d.color, fillOpacity: 0.92,
-      }).bindPopup(`<b>${d.name}</b><br><span style="font-size:11px">${d.desc}</span>`)
-    )
-  );
+  // Special Management Areas — ESA and Croton Prairie not in USFS EDW GeoJSON,
+  // so shown here as approximate markers. RNA + Exp Forest are already polygons
+  // in the USFS Special Areas layer.
+  const bneaSpecialLayer = L.layerGroup([
+    L.circleMarker([43.462, -85.752], {
+      radius: 11, color: '#fff', weight: 2, fillColor: '#8b5cf6', fillOpacity: 0.9,
+    }).bindPopup('<b>Newaygo Prairie Ecological Study Area (ESA)</b><br><span style="font-size:11px">~80 acres · MA 8.4 (Special Area) · Largest single dry sand prairie remnant in the project area — one of 4 remnants totaling ~120 ac. <b>Not in USFS EDW polygon data</b>; location approximate (Brooks Twp core).</span>'),
+    L.circleMarker([43.410, -85.675], {
+      radius: 11, color: '#fff', weight: 2, fillColor: '#7c3aed', fillOpacity: 0.9,
+    }).bindPopup('<b>Croton Prairie Wildlife Emphasis Area</b><br><span style="font-size:11px">~2,200 acres · MA 9.2W (Study Wild & Scenic / Wildlife Emphasis) · Along Little Muskegon Study Wild & Scenic River · Croton Township. Location approximate.</span>'),
+  ]);
 
   document.getElementById('chk-bnea-special').addEventListener('change', e => {
     e.target.checked ? bneaSpecialLayer.addTo(map) : map.removeLayer(bneaSpecialLayer);
   });
 
-  // Project Parcels (PLSS section clusters)
-  const bneaParcelsData = [
-    { lat: 43.499, lng: -85.560, name: 'Aetna Twp — T13N R10W Sec 30',
-      desc: 'Mecosta County · 1 section in project area.' },
-    { lat: 43.425, lng: -85.540, name: 'Reynolds Twp — T12N R10W Sec 20',
-      desc: 'Montcalm County · 1 section in project area.' },
-    { lat: 43.421, lng: -85.647, name: 'Croton Twp — T12N R11W Secs 13, 30, 31',
-      desc: 'Newaygo County · 3 sections. Includes Croton Prairie Wildlife Emphasis Area.' },
-    { lat: 43.433, lng: -85.750, name: 'Brooks Twp — T12N R12W Secs 1–4, 8–10, 25–27, 34–36',
-      desc: 'Newaygo County · 12 sections. Core of project area — contains Newaygo Prairies RNA, Experimental Forest, and ESA.' },
-    { lat: 43.489, lng: -85.673, name: 'Big Prairie Twp — T13N R11W Secs 30–32',
-      desc: 'Newaygo County · 3 sections.' },
-    { lat: 43.499, lng: -85.733, name: 'Everett Twp — T13N R12W Secs 22, 23, 27, 34, 35',
-      desc: 'Newaygo County · 5 sections. Bigelow Creek runs through this township (Secs 9, 16, 33).' },
-  ];
-
-  const bneaParcelsLayer = L.layerGroup(
-    bneaParcelsData.map(d =>
-      L.circleMarker([d.lat, d.lng], {
-        radius: 8, color: '#fff', weight: 1.5,
-        fillColor: '#f59e0b', fillOpacity: 0.88,
-      }).bindPopup(`<b>${d.name}</b><br><span style="font-size:11px">${d.desc}</span>`)
-    )
-  );
+  // Project Parcels — actual PLSS section rectangles (~1 mile each, approximate)
+  const PARCEL_STYLE = { color: '#f59e0b', weight: 1.5, fillColor: '#f59e0b', fillOpacity: 0.18 };
+  const bneaParcelsLayer = L.layerGroup([
+    // T12N R12W (Brooks Twp) — twpS=43.388, twpW=-85.810
+    ...[1,2,3,4,8,9,10,25,26,27,34,35,36].map(s =>
+      secRect(43.388, -85.810, s,
+        `<b>T12N R12W Sec ${s}</b> — Brooks Twp, Newaygo Co.<br><span style="font-size:11px">Core project area · Contains Newaygo Prairies RNA, Exp. Forest, and ESA.</span>`,
+        PARCEL_STYLE)),
+    // T12N R11W (Croton Twp) — twpS=43.388, twpW=-85.690
+    ...[13,30,31].map(s =>
+      secRect(43.388, -85.690, s,
+        `<b>T12N R11W Sec ${s}</b> — Croton Twp, Newaygo Co.<br><span style="font-size:11px">Includes Croton Prairie Wildlife Emphasis Area.</span>`,
+        PARCEL_STYLE)),
+    // T13N R11W (Big Prairie Twp) — twpS=43.477, twpW=-85.690
+    ...[30,31,32].map(s =>
+      secRect(43.477, -85.690, s,
+        `<b>T13N R11W Sec ${s}</b> — Big Prairie Twp, Newaygo Co.`,
+        PARCEL_STYLE)),
+    // T13N R12W (Everett Twp) — twpS=43.477, twpW=-85.810
+    ...[22,23,27,34,35].map(s =>
+      secRect(43.477, -85.810, s,
+        `<b>T13N R12W Sec ${s}</b> — Everett Twp, Newaygo Co.<br><span style="font-size:11px">Bigelow Creek runs through Secs 9, 16, 33 of this township.</span>`,
+        PARCEL_STYLE)),
+    // T13N R10W (Aetna Twp, Mecosta) — twpS=43.477, twpW=-85.570
+    secRect(43.477, -85.570, 30,
+      '<b>T13N R10W Sec 30</b> — Aetna Twp, Mecosta Co.',
+      PARCEL_STYLE),
+    // T12N R10W (Reynolds Twp, Montcalm) — twpS=43.388, twpW=-85.570
+    secRect(43.388, -85.570, 20,
+      '<b>T12N R10W Sec 20</b> — Reynolds Twp, Montcalm Co.',
+      PARCEL_STYLE),
+  ]);
 
   document.getElementById('chk-bnea-parcels').addEventListener('change', e => {
     e.target.checked ? bneaParcelsLayer.addTo(map) : map.removeLayer(bneaParcelsLayer);
   });
 
-  // Bigelow Creek survey / structure sites
-  const bneaCreekData = [
-    { lat: 43.484, lng: -85.760, name: 'Bigelow Creek — Downstream Reach (Sec 33)',
-      desc: 'T13N R12W · 1,000 ft reach immediately downstream of 40th St · Dominated by brown trout (55%) and rainbow/steelhead (44%) · 9 road-stream crossings in watershed to be improved.' },
-    { lat: 43.529, lng: -85.780, name: 'Bigelow Creek — Upstream Reach (Sec 16)',
-      desc: 'T13N R12W · 1,000 ft reach upstream of Walnut Ave & 24th St · Dominated by brook trout (88%) · Fish counts 8× lower than downstream.' },
-    { lat: 43.544, lng: -85.760, name: 'Bigelow Creek — Wood Structures Site (Sec 9)',
-      desc: 'T13N R12W · Instream wood structures installed after 1991 · Up to 28 structures to be reconstructed/replaced under project · 17 acres of riparian tree planting planned.' },
+  // Bigelow Creek — polyline through known survey/structure sections + clickable markers
+  // Creek flows roughly S→N through T13N R12W Secs 33→16→9
+  const CREEK_STYLE = { color: '#38bdf8', weight: 3, opacity: 0.85 };
+  const creekPoints = [
+    [43.484, -85.760],  // Sec 33 downstream reach
+    [43.529, -85.780],  // Sec 16 upstream reach
+    [43.544, -85.760],  // Sec 9 wood structures site
   ];
-
-  const bneaCreekLayer = L.layerGroup(
-    bneaCreekData.map(d =>
-      L.circleMarker([d.lat, d.lng], {
-        radius: 8, color: '#fff', weight: 1.5,
-        fillColor: '#38bdf8', fillOpacity: 0.9,
-      }).bindPopup(`<b>${d.name}</b><br><span style="font-size:11px">${d.desc}</span>`)
-    )
-  );
+  const creekSiteStyle = { radius: 7, color: '#fff', weight: 1.5, fillColor: '#38bdf8', fillOpacity: 0.95 };
+  const bneaCreekLayer = L.layerGroup([
+    L.polyline(creekPoints, CREEK_STYLE),
+    L.circleMarker(creekPoints[0], creekSiteStyle).bindPopup(
+      '<b>Bigelow Creek — Downstream Reach (Sec 33)</b><br><span style="font-size:11px">T13N R12W · 1,000 ft reach below 40th St · Brown trout 55%, Rainbow/steelhead 44% · 9 road-stream crossings to be improved.</span>'),
+    L.circleMarker(creekPoints[1], creekSiteStyle).bindPopup(
+      '<b>Bigelow Creek — Upstream Reach (Sec 16)</b><br><span style="font-size:11px">T13N R12W · 1,000 ft reach above Walnut Ave & 24th St · Brook trout dominant (88%) · Fish counts 8× lower than downstream — road crossings blocking migration.</span>'),
+    L.circleMarker(creekPoints[2], creekSiteStyle).bindPopup(
+      '<b>Bigelow Creek — Wood Structures (Sec 9)</b><br><span style="font-size:11px">T13N R12W · Up to 28 instream structures to be reconstructed/replaced · 17 acres riparian tree planting planned · State-designated trout stream; spawning habitat for steelhead & salmon.</span>'),
+  ]);
 
   document.getElementById('chk-bnea-creek').addEventListener('change', e => {
     e.target.checked ? bneaCreekLayer.addTo(map) : map.removeLayer(bneaCreekLayer);
   });
 
   // Active Management zones (approximate compartment centers)
-  const bneaMgmtData = [
-    { lat: 43.433, lng: -85.750, name: 'Compartments 519–522 — Pine Thinning / Savanna',
-      desc: 'Brooks Twp core · Multiple stands proposed for savanna/opening creation · Prescribed burning · Illegal ORV damage in Comp 513 Stands 5,7,8 (addressed separately under Basswood Cat-Ex).' },
-    { lat: 43.499, lng: -85.733, name: 'Compartments 576–578 — Pine Thinning / Savanna',
-      desc: 'Everett Twp · Multiple stands for savanna/opening creation · Broadcast burning planned · Road closures in this zone.' },
-    { lat: 43.489, lng: -85.673, name: 'Compartments 573, 582, 586 — Pine Thinning',
-      desc: 'Big Prairie Twp · Red pine commercial thinning · 1,412–1,457 total acres of pine thinning across all compartments · Harvest season: Oct–Mar (dormant, oak wilt prevention).' },
-    { lat: 43.421, lng: -85.647, name: 'Compartments 517 — Savanna / Opening Creation',
-      desc: 'Croton Twp · Multiple stands for savanna and opening creation including Stands 16, 23, 29, 62, 67 · Prescribed burning.' },
-  ];
-
-  const bneaMgmtLayer = L.layerGroup(
-    bneaMgmtData.map(d =>
-      L.circleMarker([d.lat, d.lng], {
-        radius: 8, color: '#fff', weight: 1.5,
-        fillColor: '#f87171', fillOpacity: 0.88,
-      }).bindPopup(`<b>${d.name}</b><br><span style="font-size:11px">${d.desc}</span>`)
-    )
-  );
+  const bneaMgmtLayer = L.layerGroup([
+    L.circleMarker([43.433, -85.750], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
+      .bindPopup('<b>Comps 513, 519–522 — Pine Thinning / Savanna (Brooks Twp)</b><br><span style="font-size:11px">Core project area · Savanna/opening creation · Prescribed burning · ORV damage in Comp 513 Stands 5,7,8 addressed separately under Basswood Cat-Ex.</span>'),
+    L.circleMarker([43.499, -85.733], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
+      .bindPopup('<b>Comps 576–578 — Pine Thinning / Savanna (Everett Twp)</b><br><span style="font-size:11px">Multiple stands for savanna/opening creation · Broadcast burning · Road closures in this zone.</span>'),
+    L.circleMarker([43.489, -85.673], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
+      .bindPopup('<b>Comps 573, 582, 586 — Pine Thinning (Big Prairie Twp)</b><br><span style="font-size:11px">Red pine commercial thinning · 1,412–1,457 ac total across all comps · Harvest Oct–Mar (dormant season, oak wilt prevention).</span>'),
+    L.circleMarker([43.421, -85.647], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
+      .bindPopup('<b>Comp 517 — Savanna / Opening Creation (Croton Twp)</b><br><span style="font-size:11px">Stands 16, 23, 29, 62, 67 · Savanna and opening creation · Prescribed burning.</span>'),
+  ]);
 
   document.getElementById('chk-bnea-mgmt').addEventListener('change', e => {
     e.target.checked ? bneaMgmtLayer.addTo(map) : map.removeLayer(bneaMgmtLayer);
