@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.35</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.37</div>
   </div>
 
   <div class="section">
@@ -3739,7 +3739,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.30'),
+          Version:      PDFString.of('2.37'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -4326,7 +4326,7 @@
       const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.35'),
+        Version:      PDFString.of('2.37'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           mX,    mY,
