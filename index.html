@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.37</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.38</div>
   </div>
 
   <div class="section">
@@ -1149,34 +1149,6 @@
         <button class="ann-btn" id="ann-edit">Edit</button>
         <button class="ann-btn ann-btn-danger" id="ann-clear">Clear All</button>
       </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-label species-toggle" id="bnea-toggle">
-      Bigelow-Newaygo EA <span class="species-arrow closed">▾</span>
-    </div>
-    <div id="bnea-body" style="display:none">
-      <label class="check-item">
-        <input type="checkbox" id="chk-bnea-special">
-        <span class="inat-dot" style="background:#8b5cf6"></span>
-        Special Mgmt Areas
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-bnea-parcels">
-        <span class="inat-dot" style="background:#f59e0b"></span>
-        Project Parcels (PLSS)
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-bnea-creek">
-        <span class="inat-dot" style="background:#38bdf8"></span>
-        Bigelow Creek Sites
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-bnea-mgmt">
-        <span class="inat-dot" style="background:#f87171"></span>
-        Active Management
-      </label>
     </div>
   </div>
 
@@ -1974,128 +1946,6 @@
     }
   }
 
-
-  // ── Bigelow-Newaygo EA layers ────────────────────────────────────
-
-  document.getElementById('bnea-toggle').addEventListener('click', () => {
-    const body  = document.getElementById('bnea-body');
-    const arrow = document.querySelector('#bnea-toggle .species-arrow');
-    const open  = body.style.display !== 'none';
-    body.style.display = open ? 'none' : '';
-    arrow.classList.toggle('closed', open);
-  });
-
-  // PLSS helper — Michigan Meridian base values (approximate)
-  // Computes section rectangle bounds given township SW corner + row/col (0=south/west)
-  function plssSecBounds(twpS, twpW, row, col) {
-    const sh = 0.01483, sw = 0.02000; // ~1 mile per section at this latitude
-    return [[twpS + row * sh, twpW + col * sw], [twpS + (row+1) * sh, twpW + (col+1) * sw]];
-  }
-  // Standard PLSS section → [row, col] lookup (row 0 = south, col 0 = west)
-  const SPLSS = {
-     1:[5,5], 2:[5,4], 3:[5,3], 4:[5,2], 5:[5,1], 6:[5,0],
-     7:[4,0], 8:[4,1], 9:[4,2],10:[4,3],11:[4,4],12:[4,5],
-    13:[3,5],14:[3,4],15:[3,3],16:[3,2],17:[3,1],18:[3,0],
-    19:[2,0],20:[2,1],21:[2,2],22:[2,3],23:[2,4],24:[2,5],
-    25:[1,5],26:[1,4],27:[1,3],28:[1,2],29:[1,1],30:[1,0],
-    31:[0,0],32:[0,1],33:[0,2],34:[0,3],35:[0,4],36:[0,5],
-  };
-  function secRect(twpS, twpW, sec, popup, style) {
-    const [r,c] = SPLSS[sec];
-    return L.rectangle(plssSecBounds(twpS, twpW, r, c), style).bindPopup(popup);
-  }
-
-  // Special Management Areas — ESA and Croton Prairie not in USFS EDW GeoJSON,
-  // so shown here as approximate markers. RNA + Exp Forest are already polygons
-  // in the USFS Special Areas layer.
-  const bneaSpecialLayer = L.layerGroup([
-    L.circleMarker([43.462, -85.752], {
-      radius: 11, color: '#fff', weight: 2, fillColor: '#8b5cf6', fillOpacity: 0.9,
-    }).bindPopup('<b>Newaygo Prairie Ecological Study Area (ESA)</b><br><span style="font-size:11px">~80 acres · MA 8.4 (Special Area) · Largest single dry sand prairie remnant in the project area — one of 4 remnants totaling ~120 ac. <b>Not in USFS EDW polygon data</b>; location approximate (Brooks Twp core).</span>'),
-    L.circleMarker([43.410, -85.675], {
-      radius: 11, color: '#fff', weight: 2, fillColor: '#7c3aed', fillOpacity: 0.9,
-    }).bindPopup('<b>Croton Prairie Wildlife Emphasis Area</b><br><span style="font-size:11px">~2,200 acres · MA 9.2W (Study Wild & Scenic / Wildlife Emphasis) · Along Little Muskegon Study Wild & Scenic River · Croton Township. Location approximate.</span>'),
-  ]);
-
-  document.getElementById('chk-bnea-special').addEventListener('change', e => {
-    e.target.checked ? bneaSpecialLayer.addTo(map) : map.removeLayer(bneaSpecialLayer);
-  });
-
-  // Project Parcels — actual PLSS section rectangles (~1 mile each, approximate)
-  const PARCEL_STYLE = { color: '#f59e0b', weight: 1.5, fillColor: '#f59e0b', fillOpacity: 0.18 };
-  const bneaParcelsLayer = L.layerGroup([
-    // T12N R12W (Brooks Twp) — twpS=43.388, twpW=-85.810
-    ...[1,2,3,4,8,9,10,25,26,27,34,35,36].map(s =>
-      secRect(43.388, -85.810, s,
-        `<b>T12N R12W Sec ${s}</b> — Brooks Twp, Newaygo Co.<br><span style="font-size:11px">Core project area · Contains Newaygo Prairies RNA, Exp. Forest, and ESA.</span>`,
-        PARCEL_STYLE)),
-    // T12N R11W (Croton Twp) — twpS=43.388, twpW=-85.690
-    ...[13,30,31].map(s =>
-      secRect(43.388, -85.690, s,
-        `<b>T12N R11W Sec ${s}</b> — Croton Twp, Newaygo Co.<br><span style="font-size:11px">Includes Croton Prairie Wildlife Emphasis Area.</span>`,
-        PARCEL_STYLE)),
-    // T13N R11W (Big Prairie Twp) — twpS=43.477, twpW=-85.690
-    ...[30,31,32].map(s =>
-      secRect(43.477, -85.690, s,
-        `<b>T13N R11W Sec ${s}</b> — Big Prairie Twp, Newaygo Co.`,
-        PARCEL_STYLE)),
-    // T13N R12W (Everett Twp) — twpS=43.477, twpW=-85.810
-    ...[22,23,27,34,35].map(s =>
-      secRect(43.477, -85.810, s,
-        `<b>T13N R12W Sec ${s}</b> — Everett Twp, Newaygo Co.<br><span style="font-size:11px">Bigelow Creek runs through Secs 9, 16, 33 of this township.</span>`,
-        PARCEL_STYLE)),
-    // T13N R10W (Aetna Twp, Mecosta) — twpS=43.477, twpW=-85.570
-    secRect(43.477, -85.570, 30,
-      '<b>T13N R10W Sec 30</b> — Aetna Twp, Mecosta Co.',
-      PARCEL_STYLE),
-    // T12N R10W (Reynolds Twp, Montcalm) — twpS=43.388, twpW=-85.570
-    secRect(43.388, -85.570, 20,
-      '<b>T12N R10W Sec 20</b> — Reynolds Twp, Montcalm Co.',
-      PARCEL_STYLE),
-  ]);
-
-  document.getElementById('chk-bnea-parcels').addEventListener('change', e => {
-    e.target.checked ? bneaParcelsLayer.addTo(map) : map.removeLayer(bneaParcelsLayer);
-  });
-
-  // Bigelow Creek — polyline through known survey/structure sections + clickable markers
-  // Creek flows roughly S→N through T13N R12W Secs 33→16→9
-  const CREEK_STYLE = { color: '#38bdf8', weight: 3, opacity: 0.85 };
-  const creekPoints = [
-    [43.484, -85.760],  // Sec 33 downstream reach
-    [43.529, -85.780],  // Sec 16 upstream reach
-    [43.544, -85.760],  // Sec 9 wood structures site
-  ];
-  const creekSiteStyle = { radius: 7, color: '#fff', weight: 1.5, fillColor: '#38bdf8', fillOpacity: 0.95 };
-  const bneaCreekLayer = L.layerGroup([
-    L.polyline(creekPoints, CREEK_STYLE),
-    L.circleMarker(creekPoints[0], creekSiteStyle).bindPopup(
-      '<b>Bigelow Creek — Downstream Reach (Sec 33)</b><br><span style="font-size:11px">T13N R12W · 1,000 ft reach below 40th St · Brown trout 55%, Rainbow/steelhead 44% · 9 road-stream crossings to be improved.</span>'),
-    L.circleMarker(creekPoints[1], creekSiteStyle).bindPopup(
-      '<b>Bigelow Creek — Upstream Reach (Sec 16)</b><br><span style="font-size:11px">T13N R12W · 1,000 ft reach above Walnut Ave & 24th St · Brook trout dominant (88%) · Fish counts 8× lower than downstream — road crossings blocking migration.</span>'),
-    L.circleMarker(creekPoints[2], creekSiteStyle).bindPopup(
-      '<b>Bigelow Creek — Wood Structures (Sec 9)</b><br><span style="font-size:11px">T13N R12W · Up to 28 instream structures to be reconstructed/replaced · 17 acres riparian tree planting planned · State-designated trout stream; spawning habitat for steelhead & salmon.</span>'),
-  ]);
-
-  document.getElementById('chk-bnea-creek').addEventListener('change', e => {
-    e.target.checked ? bneaCreekLayer.addTo(map) : map.removeLayer(bneaCreekLayer);
-  });
-
-  // Active Management zones (approximate compartment centers)
-  const bneaMgmtLayer = L.layerGroup([
-    L.circleMarker([43.433, -85.750], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
-      .bindPopup('<b>Comps 513, 519–522 — Pine Thinning / Savanna (Brooks Twp)</b><br><span style="font-size:11px">Core project area · Savanna/opening creation · Prescribed burning · ORV damage in Comp 513 Stands 5,7,8 addressed separately under Basswood Cat-Ex.</span>'),
-    L.circleMarker([43.499, -85.733], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
-      .bindPopup('<b>Comps 576–578 — Pine Thinning / Savanna (Everett Twp)</b><br><span style="font-size:11px">Multiple stands for savanna/opening creation · Broadcast burning · Road closures in this zone.</span>'),
-    L.circleMarker([43.489, -85.673], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
-      .bindPopup('<b>Comps 573, 582, 586 — Pine Thinning (Big Prairie Twp)</b><br><span style="font-size:11px">Red pine commercial thinning · 1,412–1,457 ac total across all comps · Harvest Oct–Mar (dormant season, oak wilt prevention).</span>'),
-    L.circleMarker([43.421, -85.647], { radius: 9, color:'#fff', weight:1.5, fillColor:'#f87171', fillOpacity:0.88 })
-      .bindPopup('<b>Comp 517 — Savanna / Opening Creation (Croton Twp)</b><br><span style="font-size:11px">Stands 16, 23, 29, 62, 67 · Savanna and opening creation · Prescribed burning.</span>'),
-  ]);
-
-  document.getElementById('chk-bnea-mgmt').addEventListener('change', e => {
-    e.target.checked ? bneaMgmtLayer.addTo(map) : map.removeLayer(bneaMgmtLayer);
-  });
 
   // ── USFS Forest Stands (FSVeg Common Stand Exam data) ────────────
   // Two-step fetch: stand polygons (layer 1) → related VegCharacterizations
@@ -3739,7 +3589,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.37'),
+          Version:      PDFString.of('2.38'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -4326,7 +4176,7 @@
       const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.37'),
+        Version:      PDFString.of('2.38'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           mX,    mY,
