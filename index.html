@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.39</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.40</div>
   </div>
 
   <div class="section">
@@ -3643,7 +3643,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.39'),
+          Version:      PDFString.of('2.40'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3673,7 +3673,7 @@
             GPTS:    pdfCtx.obj([bS,bW, bS,bE, bN,bE, bN,bW]),
             LPTS:    pdfCtx.obj([0,0,  1,0,  1,1,  0,1]),
             GCS:     pdfCtx.obj({
-              Type: PDFName.of('PROJCS'),
+              Type: PDFName.of('GEOGCS'),
               WKT:  PDFString.of(wgs84Wkt),
             }),
           }),
@@ -3982,6 +3982,16 @@
         mY = Math.round((availH-mH)/2);
       }
 
+      // Extended registration bounds covering the full PDF page (mY=0 normal case,
+      // or letterboxed case where mY>0). This ensures GPS is accurate whether
+      // Avenza honours the VP BBox or normalises against the full page height.
+      const latPerPt = (N - S) / mH;
+      const lngPerPt = (E - W) / mW;
+      const S_reg = S - latPerPt * mY;
+      const N_reg = S + latPerPt * (pageH - mY);
+      const W_reg = W - lngPerPt * mX;
+      const E_reg = E + lngPerPt * (pageW - mX - mW);
+
       btn.textContent = 'Building PDF…';
       const { PDFDocument, PDFName, PDFString, StandardFonts, rgb } = PDFLib;
       const pdfDoc = await PDFDocument.create();
@@ -4230,19 +4240,19 @@
       const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.39'),
+        Version:      PDFString.of('2.40'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
-          mX,    mY,
-          mX+mW, mY,
-          mX+mW, mY+mH,
-          mX,    mY+mH,
+          0,     0,
+          pageW, 0,
+          pageW, pageH,
+          0,     pageH,
         ]),
         Registration: ctx.obj([
-          [mX,    mY,    W, S],
-          [mX+mW, mY,    E, S],
-          [mX+mW, mY+mH, E, N],
-          [mX,    mY+mH, W, N],
+          [0,     0,     W_reg, S_reg],
+          [pageW, 0,     E_reg, S_reg],
+          [pageW, pageH, E_reg, N_reg],
+          [0,     pageH, W_reg, N_reg],
         ]),
         Projection: ctx.obj({
           Type:           PDFName.of('Projection'),
@@ -4254,13 +4264,13 @@
       // ISO 32000 VP/Measure — BBox corners in page coords, GPTS in [lat,lon] WGS84
       page.node.set(PDFName.of('VP'), ctx.obj([{
         Type:    PDFName.of('Viewport'),
-        BBox:    ctx.obj([mX, mY, mX+mW, mY+mH]),
+        BBox:    ctx.obj([0, 0, pageW, pageH]),
         Name:    PDFString.of(titleText),
         Measure: ctx.obj({
           Type:    PDFName.of('Measure'),
           Subtype: PDFName.of('GEO'),
           Bounds:  ctx.obj([0,0, 1,0, 1,1, 0,1]),
-          GPTS:    ctx.obj([S,W, S,E, N,E, N,W]),
+          GPTS:    ctx.obj([S_reg,W_reg, S_reg,E_reg, N_reg,E_reg, N_reg,W_reg]),
           LPTS:    ctx.obj([0,0, 1,0, 1,1, 0,1]),
           GCS:     ctx.obj({
             Type: PDFName.of('GEOGCS'),
