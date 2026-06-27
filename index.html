@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.41</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.42</div>
   </div>
 
   <div class="section">
@@ -3643,7 +3643,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.41'),
+          Version:      PDFString.of('2.0'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3670,7 +3670,7 @@
             Type:    PDFName.of('Measure'),
             Subtype: PDFName.of('GEO'),
             Bounds:  pdfCtx.obj([0,0, 1,0, 1,1, 0,1]),
-            GPTS:    pdfCtx.obj([bS,bW, bS,bE, bN,bE, bN,bW]),
+            GPTS:    pdfCtx.obj([bN,bW, bN,bE, bS,bE, bS,bW]),
             LPTS:    pdfCtx.obj([0,0,  1,0,  1,1,  0,1]),
             GCS:     pdfCtx.obj({
               Type: PDFName.of('GEOGCS'),
@@ -4263,7 +4263,7 @@
           Type:    PDFName.of('Measure'),
           Subtype: PDFName.of('GEO'),
           Bounds:  ctx.obj([0,0, 1,0, 1,1, 0,1]),
-          GPTS:    ctx.obj([S,W, S,E, N_ext,E, N_ext,W]),
+          GPTS:    ctx.obj([N_ext,W, N_ext,E, S,E, S,W]),
           LPTS:    ctx.obj([0,0, 1,0, 1,1, 0,1]),
           GCS:     ctx.obj({
             Type: PDFName.of('GEOGCS'),
