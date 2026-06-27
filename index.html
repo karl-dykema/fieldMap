@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.40</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.41</div>
   </div>
 
   <div class="section">
@@ -3643,7 +3643,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.40'),
+          Version:      PDFString.of('2.41'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -3929,25 +3929,35 @@
     const availW = pageW;
     const availH = pageH - titleH;
 
-    // Expand bbox to fill the page in Mercator proportions (no letterboxing)
+    // Expand bbox to fill the page in Mercator proportions (no letterboxing).
+    // fitBboxToAspect targets availW×availH — the map area below the title block.
     const expanded = fitBboxToAspect(printBounds, availW, availH);
     const W=expanded.getWest(), E=expanded.getEast(), S=expanded.getSouth(), N=expanded.getNorth();
 
-    // Pixel dimensions for image fetch — full page at requested DPI
-    const mapPxW = Math.min(4096, Math.round(availW * dpi / 72));
-    const mapPxH = Math.min(4096, Math.round(availH * dpi / 72));
-    const bbox = `${W},${S},${E},${N}`;
-    const sz   = `${mapPxW},${mapPxH}`;
+    // Extend bbox northward to cover the full PDF page (including title block).
+    // This lets the satellite image fill the entire page, with the title block's
+    // cream rectangle drawn on top. The registration then covers y=0 (S) to y=pageH (N_ext)
+    // and GPS placement is exact regardless of how the PDF viewer uses the page vs BBox.
+    const N_ext = S + (N - S) * pageH / availH;
+
+    // Pixel dimensions: base image fetched at full page height; overlays at map area only.
+    const mapPxW  = Math.min(4096, Math.round(availW * dpi / 72));
+    const mapPxH  = Math.min(4096, Math.round(availH * dpi / 72));  // map area
+    const mapPxHp = Math.min(4096, Math.round(pageH  * dpi / 72));  // full page
+    const bbox    = `${W},${S},${E},${N}`;      // map area bbox
+    const bboxExt = `${W},${S},${E},${N_ext}`;  // full-page bbox
+    const sz    = `${mapPxW},${mapPxH}`;
+    const szExt = `${mapPxW},${mapPxHp}`;
 
     // imageSR=102100 = Web Mercator — same projection as Leaflet; features look identical to the map
     const BASE_URLS = {
-      satellite: `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
-      topo:      `https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
-      naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png&f=image`,
-      usgs:      `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&f=image`,
+      satellite: `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=${bboxExt}&bboxSR=4326&imageSR=102100&size=${szExt}&format=png32&f=image`,
+      topo:      `https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/export?bbox=${bboxExt}&bboxSR=4326&imageSR=102100&size=${szExt}&format=png32&f=image`,
+      naip:      `https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/exportImage?bbox=${bboxExt}&bboxSR=4326&imageSR=102100&size=${szExt}&format=png&f=image`,
+      usgs:      `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?bbox=${bboxExt}&bboxSR=4326&imageSR=102100&size=${szExt}&format=png32&f=image`,
     };
 
-    // Active raster overlays — fetched in layer order (bottom to top)
+    // Overlays use the map-area bbox (they sit only in the lower portion of the page)
     const overlayFetches = [];
     if (document.getElementById('chk-nlcd').checked)
       overlayFetches.push(fetchLayerBytes(`https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms?service=WMS&version=1.1.1&request=GetMap&layers=NLCD_2021_Land_Cover_L48&bbox=${bbox}&width=${mapPxW}&height=${mapPxH}&srs=EPSG:4326&format=image/png&transparent=true`));
@@ -3970,27 +3980,12 @@
       ]);
       if (!baseBytes) throw new Error('Base imagery failed to load');
 
-      // Map occupies the bottom of the page (y=0); title block sits on top (y=availH).
-      // mY=0 means the SW georef corner is at y=0 — same structure as the leafletImage export.
-      let mW=availW, mH=availH, mX=0, mY=0;
-      const dims = pngDims(baseBytes);
-      if (dims && Math.abs(dims.w/dims.h - mapPxW/mapPxH) > 0.02) {
-        const ar = dims.w / dims.h;
-        if (ar > availW/availH) { mW=availW; mH=Math.round(availW/ar); }
-        else                    { mH=availH; mW=Math.round(availH*ar); }
-        mX = Math.round((availW-mW)/2);
-        mY = Math.round((availH-mH)/2);
-      }
-
-      // Extended registration bounds covering the full PDF page (mY=0 normal case,
-      // or letterboxed case where mY>0). This ensures GPS is accurate whether
-      // Avenza honours the VP BBox or normalises against the full page height.
-      const latPerPt = (N - S) / mH;
-      const lngPerPt = (E - W) / mW;
-      const S_reg = S - latPerPt * mY;
-      const N_reg = S + latPerPt * (pageH - mY);
-      const W_reg = W - lngPerPt * mX;
-      const E_reg = E + lngPerPt * (pageW - mX - mW);
+      // Base image covers the full page (y=0 to y=pageH), fetched for bbox [S,N_ext].
+      // Map features are drawn in the lower portion (y=0 to y=availH, covering [S,N]).
+      // Title block cream rectangle overlays the upper portion (y=availH to y=pageH).
+      // This ensures GPS registration is exact: y=0→S, y=pageH→N_ext, so map content
+      // at lat L sits at y=(L-S)/(N_ext-S)*pageH = (L-S)/(N-S)*availH, matching the registration.
+      const mW=availW, mH=availH, mX=0, mY=0;
 
       btn.textContent = 'Building PDF…';
       const { PDFDocument, PDFName, PDFString, StandardFonts, rgb } = PDFLib;
@@ -3999,13 +3994,11 @@
       const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const fontB  = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-      // Dark fill only appears if the server capped image size (rare)
-      if (mW < availW || mH < availH)
-        page.drawRectangle({x:0, y:0, width:availW, height:availH, color:rgb(0.15,0.15,0.16)});
-
       // ── Map imagery ──
+      // Base image fills the full page (height=pageH) — it was fetched for bbox [S,N_ext].
+      // Overlays cover only the map area (height=mH=availH) — fetched for bbox [S,N].
       const baseImg = await embedAnyImg(pdfDoc, baseBytes);
-      if (baseImg) page.drawImage(baseImg, {x:mX, y:mY, width:mW, height:mH});
+      if (baseImg) page.drawImage(baseImg, {x:0, y:0, width:availW, height:pageH});
 
       for (const bytes of ovBytes) {
         if (!bytes) continue;
@@ -4240,7 +4233,7 @@
       const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.40'),
+        Version:      PDFString.of('2.41'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           0,     0,
@@ -4249,10 +4242,10 @@
           0,     pageH,
         ]),
         Registration: ctx.obj([
-          [0,     0,     W_reg, S_reg],
-          [pageW, 0,     E_reg, S_reg],
-          [pageW, pageH, E_reg, N_reg],
-          [0,     pageH, W_reg, N_reg],
+          [0,     0,     W, S],
+          [pageW, 0,     E, S],
+          [pageW, pageH, E, N_ext],
+          [0,     pageH, W, N_ext],
         ]),
         Projection: ctx.obj({
           Type:           PDFName.of('Projection'),
@@ -4270,7 +4263,7 @@
           Type:    PDFName.of('Measure'),
           Subtype: PDFName.of('GEO'),
           Bounds:  ctx.obj([0,0, 1,0, 1,1, 0,1]),
-          GPTS:    ctx.obj([S_reg,W_reg, S_reg,E_reg, N_reg,E_reg, N_reg,W_reg]),
+          GPTS:    ctx.obj([S,W, S,E, N_ext,E, N_ext,W]),
           LPTS:    ctx.obj([0,0, 1,0, 1,1, 0,1]),
           GCS:     ctx.obj({
             Type: PDFName.of('GEOGCS'),
