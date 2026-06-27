@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.38</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.39</div>
   </div>
 
   <div class="section">
@@ -1078,6 +1078,20 @@
         <span class="inat-dot" style="background:#3a6848"></span>
         Big Bluestem
       </label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label species-toggle" id="rxfire-toggle">
+      2026 USFS Prescribed Burns <span class="species-arrow closed">▾</span>
+    </div>
+    <div id="rxfire-body" style="display:none">
+      <label class="check-item">
+        <input type="checkbox" id="chk-rxfire">
+        <span class="inat-dot" style="background:#e85a00"></span>
+        Show Burn Units
+      </label>
+      <div style="font-size:10px;color:#888;margin-top:4px;padding-left:4px;">Huron-Manistee NF · Baldwin/White Cloud RD · Center points only (no polygon data available)</div>
     </div>
   </div>
 
@@ -2651,6 +2665,46 @@
     if (browseIdx < browseList.length - 1) browseGo(browseIdx + 1);
   });
 
+  // ── 2026 USFS Prescribed Burns ────────────────────────────────────
+  const rxFireUnits = [
+    { name: 'Bigelow Block 4',        lat: 43.38242, lng: -85.72785, acres: 58,  township: 'Brooks Township',  desc: 'North of 96th Street, between Spruce and Poplar Roads' },
+    { name: 'Coolbaugh Rx 8',         lat: 43.46060, lng: -85.74200, acres: 130, township: 'Brooks Township',  desc: 'North of E 58th Street, east of Bigelow Creek along the North Country Trail' },
+    { name: 'Poplar Road',            lat: 43.46350, lng: -85.72020, acres: 37,  township: 'Brooks Township',  desc: 'South of E. 48th Street, between S. Poplar Ave and S. Laurel Drive' },
+    { name: 'Bigelow Block 1',        lat: 43.39591, lng: -85.68003, acres: 35,  township: 'Croton Township',  desc: 'East of the intersection of South Pine Ave. and E 88th Street' },
+    { name: '48th St. Complex Unit 1',lat: 43.46987, lng: -85.71229, acres: 54,  township: 'Everett Township', desc: 'North of E. 48th Street and east of Laurel Drive' },
+    { name: '48th St. Complex Unit 2',lat: 43.46607, lng: -85.71206, acres: 42,  township: 'Everett Township', desc: 'South of E. 48th Street and east of FR9222' },
+    { name: 'Boreman 14 Mile',        lat: 43.75310, lng: -85.88918, acres: 72,  township: 'Lilley Township',  desc: 'South of W. 14 Mile Road (FR8963) near the intersection with Badger Drive' },
+    { name: 'Brohman Unit 1',         lat: 43.67103, lng: -85.81193, acres: 17,  township: 'Merrill Township', desc: 'West of M-37 to the railroad tracks, between 8 Mile Road and W. Pierce Drive' },
+    { name: 'Brohman Unit 2',         lat: 43.66756, lng: -85.81248, acres: 27,  township: 'Merrill Township', desc: 'West of M-37 to the railroad tracks, south of 8 Mile Road' },
+  ];
+
+  const rxFireLayer = L.layerGroup(rxFireUnits.map(u => {
+    const marker = L.circleMarker([u.lat, u.lng], {
+      radius: 10, color: '#b83500', weight: 2,
+      fillColor: '#e85a00', fillOpacity: 0.85
+    });
+    marker.bindPopup(
+      `<b>🔥 ${u.name}</b><br>` +
+      `<span style="color:#888">${u.township}</span><br>` +
+      `${u.acres} acres<br>` +
+      `<span style="font-size:11px">${u.desc}</span><br>` +
+      `<span style="font-size:10px;color:#aaa">Huron-Manistee NF · 2026 Rx Fire Season</span>`
+    );
+    return marker;
+  }));
+
+  document.getElementById('chk-rxfire').addEventListener('change', e => {
+    e.target.checked ? rxFireLayer.addTo(map) : map.removeLayer(rxFireLayer);
+  });
+
+  document.getElementById('rxfire-toggle').addEventListener('click', () => {
+    const body  = document.getElementById('rxfire-body');
+    const arrow = document.querySelector('#rxfire-toggle .species-arrow');
+    const open  = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
   document.getElementById('browse-toggle').addEventListener('click', () => {
     const body  = document.getElementById('browse-body');
     const arrow = document.querySelector('#browse-toggle .species-arrow');
@@ -3589,7 +3643,7 @@
         const bW=b.getWest(), bE=b.getEast(), bS=b.getSouth(), bN=b.getNorth();
         page.node.set(PDFName.of('LGIDict'), pdfCtx.obj({
           Type:         PDFName.of('LGIDict'),
-          Version:      PDFString.of('2.38'),
+          Version:      PDFString.of('2.39'),
           Description:  PDFString.of('Newaygo County Field Map'),
           Neatline:     pdfCtx.obj([0, 0, W, 0, W, H, 0, H]),
           Registration: pdfCtx.obj([
@@ -4176,7 +4230,7 @@
       const wgs84Wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]';
       page.node.set(PDFName.of('LGIDict'), ctx.obj({
         Type:         PDFName.of('LGIDict'),
-        Version:      PDFString.of('2.38'),
+        Version:      PDFString.of('2.39'),
         Description:  PDFString.of(titleText),
         Neatline: ctx.obj([
           mX,    mY,
