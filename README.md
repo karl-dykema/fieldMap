@@ -196,16 +196,51 @@ The ecological/habitat analysis layers are what distinguish this — OnX has pro
 
 ### What Already Works Everywhere
 
-These layers are not county-specific and already function statewide / nationally:
-- Pre-settlement vegetation (MNFI statewide)
-- NLCD 2021 land cover
-- USFS Forest Stands (FSVeg — national)
-- LANDFIRE fuel model (CONUS)
-- USFS Prescribed Burns
-- DNR LOTS public land parcels (statewide)
-- Wetlands (EGLE statewide WMS)
-- iNaturalist species observations
-- Electric transmission / service areas (HIFLD national)
+These layers are not county-specific and already function statewide / nationally (already in the app):
+- Pre-settlement vegetation (MNFI statewide — `services1.arcgis.com/4ezfu5dIwH83BUNL`)
+- NLCD 2021 land cover (MRLC WMS — national)
+- USFS Forest Stands/FSVeg (ArcGIS Online — national)
+- LANDFIRE fuel model (USGS ImageServer — CONUS)
+- USFS Prescribed Burns 2026 (DNR data — Michigan)
+- DNR LOTS public land parcels (ArcGIS Online — Michigan statewide)
+- Wetlands Part 303 (EGLE WMS + FeatureServer — Michigan statewide)
+- iNaturalist species observations (API — anywhere)
+- Electric transmission / service areas (HIFLD + MNFI — national / Michigan)
+
+### Untapped Public Layers Worth Adding
+
+All of these are free, no auth required, and work statewide or nationally:
+
+**Michigan DNR Open Data** (`gis-midnr.opendata.arcgis.com`):
+| Dataset | What it adds |
+|---|---|
+| DNR Forest Inventory — Stand Covertype | State forest stands across ALL of Michigan (not just Manistee NF like current FSVeg). Cover type, species, age per stand. |
+| Michigan DNR Ownership | More current/detailed than LOTS for state-owned land categories |
+| State Forest/Wildlife/Game Areas Open to Hunting | Hunting unit boundaries |
+| Michigan DNR Conservation Easements | Private land with DNR conservation restrictions |
+
+**USFS FSGeodata** (`apps.fs.usda.gov/arcx/rest/services/EDW`):
+| Dataset | REST URL |
+|---|---|
+| National Forest Boundaries | `EDW_ForestSystemBoundaries_01/MapServer` |
+| Hazardous Fuel Treatment History | `EDW_HazardousFuelsTreatments_01/MapServer` |
+| Recreation Sites | `EDW_RecInfraRecreationSites_02/MapServer/0` |
+
+**USFWS** (federal):
+| Dataset | REST URL |
+|---|---|
+| Wildlife Refuge Boundaries | `gis.fws.gov/arcgis/rest/services/FWS_Refuge_Boundaries/FeatureServer` |
+| Critical Habitat (T&E species) | `services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer` |
+
+**Esri Living Atlas (public)**:
+| Dataset | REST URL |
+|---|---|
+| USA Federal Lands (BLM, NPS, USFS, USFWS, DoD) | `services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Federal_Lands/FeatureServer` |
+
+**Michigan Open Data Portal** (`gis-michigan.opendata.arcgis.com`):
+- Public Land Survey Quarter-Quarter Sections (PLSS grid — statewide)
+- All Roads v17a (statewide fallback when county GIS isn't available)
+- Counties / townships boundary polygons (needed for auto-switching logic)
 
 ### What Requires County-by-County Work
 
