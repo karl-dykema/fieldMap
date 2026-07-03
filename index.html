@@ -2466,8 +2466,9 @@
   });
 
   // ── MI DNR Lands (Statewide) ─────────────────────────────────────────
-  // Paginated viewport fetch: service maxRecordCount=1000 so we loop with
-  // resultOffset until all features in the padded bbox are retrieved.
+  // 132K features — too large to pre-bake as static file. Paginated viewport
+  // fetch (1000/page, 150ms delay) with in-session cache: load once per area
+  // per session, instant on subsequent pans to cached area.
   const DNR_LOTS_URL       = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0';
   const DNR_LANDS_MIN_ZOOM = 11;
 
