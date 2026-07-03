@@ -175,6 +175,75 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 
 ---
 
+## Future Ideas · Expanding Beyond Newaygo County
+
+### The Vision
+Auto-switch county-specific layers as the user pans — parcels, contours, and soils enable themselves for whatever county the viewport is centered in, with a visual indicator on screen showing which counties have supported layers.
+
+### Are We Reinventing Something?
+
+Partially — but with a different niche:
+
+| App | Parcel data | Ecological layers | Species obs | Free | GeoPDF export |
+|---|---|---|---|---|---|
+| **OnX Hunt** | ✓ (nationwide) | ✗ | ✗ | ✗ ($$$) | ✗ |
+| **CalTopo** | partial | ✗ | ✗ | partial | ✓ (paid) |
+| **Gaia GPS** | ✗ | ✗ | ✗ | partial | ✗ |
+| **HuntStand** | ✓ | ✗ | ✗ | partial | ✗ |
+| **This app** | county GIS (free) | ✓ (NLCD, pre-settlement veg, soils, wetlands) | ✓ (iNaturalist SWAP) | ✓ | ✓ |
+
+The ecological/habitat analysis layers are what distinguish this — OnX has property data but nothing like pre-settlement vegetation, LANDFIRE fuel models, or iNaturalist SWAP species. The gap is real.
+
+### What Already Works Everywhere
+
+These layers are not county-specific and already function statewide / nationally:
+- Pre-settlement vegetation (MNFI statewide)
+- NLCD 2021 land cover
+- USFS Forest Stands (FSVeg — national)
+- LANDFIRE fuel model (CONUS)
+- USFS Prescribed Burns
+- DNR LOTS public land parcels (statewide)
+- Wetlands (EGLE statewide WMS)
+- iNaturalist species observations
+- Electric transmission / service areas (HIFLD national)
+
+### What Requires County-by-County Work
+
+- **Parcel records** — each county runs its own GIS server (often Esri ArcGIS) with different layer indices, field names (`OWNER_NAME` vs `OWN_NAME1` vs `GRANTEE_NAME`), and endpoints. Some are public, many are login-gated.
+- **Contours (LiDAR-derived)** — where available, county GIS; otherwise fall back to national 3DEP.
+- **Roads (centerlines)** — county GIS or fall back to TIGER.
+- **Soils** — actually already statewide via NRCS Web Soil Survey WMS; the county GIS version is just faster and pre-styled.
+
+### Michigan Statewide Parcel Shortcut
+
+Michigan DTMB / MCGI maintains a **Statewide Parcel Map (SPM)** database aggregating all 83 counties. Worth investigating whether it has a public ArcGIS REST endpoint — if it does, parcel data across Michigan might be solvable in one connection rather than 83. Lead: `gis.michigan.gov/data/parcels` and Michigan Open Data portal. Field name normalization would still be needed.
+
+### Rough Architecture for Auto-Switching
+
+```
+counties.json  — array of:
+  {
+    fips: "26123",
+    name: "Newaygo",
+    bbox: [west, south, east, north],
+    parcels: { url, layerIndex, ownerField, pinField, acrField, ... },
+    contours: { url, layerIndex } | null,
+    roads: { url, layerIndex } | null
+  }
+```
+
+On every map move: find counties whose bbox intersects viewport → enable their layer configs. At zoom < 10, show a choropleth-style coverage map (green = supported, grey = not yet). Clicking a grey county opens a "contribute a county" prompt.
+
+### Feasibility Notes
+
+- **Same-vendor luck**: many Michigan counties use the same Esri stack as Newaygo — adapting is mostly finding the right layer index and field mapping. Quick wins likely for counties that already publish to the Michigan GIS Open Data portal.
+- **Field name normalization**: hardest part. Need a mapping function per county, or a schema negotiation step that sniffs field names on first load.
+- **Rate limits**: county GIS servers are not CDNs — some cap at 1,000 features / request. The existing grid-cell cache + tiling approach already handles this.
+- **Maintenance burden**: county servers go down, change URLs, restructure layers. A status/health check system would be necessary at scale.
+- **Start small**: add 2–3 neighboring counties (Mecosta, Osceola, Muskegon) first to validate the config-driven approach before going statewide.
+
+---
+
 ## License
 
 [GPL-3.0](LICENSE)
