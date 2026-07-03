@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.49</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.50</div>
   </div>
 
   <div class="section">
@@ -2538,6 +2538,7 @@
           url: FED_LANDS_USFS_URL,
           opacity: 0.5,
           layers: [0],
+          layerDefs: { 0: "ownerclassification='USDA FOREST SERVICE'" },
         });
       }
       usfsLandsLayer.addTo(map);
