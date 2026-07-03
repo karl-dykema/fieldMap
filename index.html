@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.54</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.55</div>
   </div>
 
   <div class="section">
@@ -3060,10 +3060,30 @@
     else if (!map.hasLayer(publicLandsLayer)) publicLandsLayer.addTo(map);
   });
 
-  function loadPublicLands() {
-    const cats = Object.keys(PL_CFG);
-    let pending = cats.length;
-    cats.forEach(cat => fetchPLCat(cat, () => { if (--pending === 0) showPLLayer(); }));
+  let plGeojsonLoaded = false;
+  let plFetching = false;
+
+  async function loadPublicLands() {
+    if (plGeojsonLoaded) { showPLLayer(); return; }
+    if (plFetching) return;
+    plFetching = true;
+    try {
+      const r = await fetch('newaygo_public_lands.geojson');
+      const fc = await r.json();
+      fc.features.forEach(f => {
+        const cat = f.properties._cat;
+        if (!plCache[cat]) plCache[cat] = [];
+        plCache[cat].push(f);
+      });
+      plGeojsonLoaded = true;
+      showPLLayer();
+    } catch (err) {
+      console.warn('Public lands load error', err);
+      // fallback: live API
+      const cats = Object.keys(PL_CFG);
+      let pending = cats.length;
+      cats.forEach(cat => fetchPLCat(cat, () => { if (--pending === 0) showPLLayer(); }));
+    } finally { plFetching = false; }
   }
 
   // Hardcoded non-parcel public sites (no county parcel record exists)
