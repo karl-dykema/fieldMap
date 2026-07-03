@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.56</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.57</div>
   </div>
 
   <div class="section">
@@ -2501,9 +2501,10 @@
         const page = await r.json();
         const feats = page.features || [];
         allFeatures.push(...feats);
-        if (feats.length < 1000) break; // last page
+        if (feats.length < 1000) break;
         offset += 1000;
-        if (offset > 10000) break;      // safety cap — 10k features max
+        if (offset > 10000) break;
+        await new Promise(res => setTimeout(res, 150)); // be polite between pages
       }
       const geojson = { type: 'FeatureCollection', features: allFeatures };
       dnrLandsCache = { bounds: fb, geojson };
