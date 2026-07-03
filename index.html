@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.42</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.43</div>
   </div>
 
   <div class="section">
@@ -818,6 +818,9 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-fsveg"> USFS Forest Stands
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-dnr-stands"> DNR Forest Stands
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-roads"> Roads
@@ -2087,6 +2090,115 @@
     }
   });
 
+  // ── Michigan DNR Forest Inventory — Stand Covertype ─────────────────
+  // Statewide state-forest stands from Michigan DNR (not USFS). Colored by
+  // cover type group. Complementary to FSVeg which covers only Manistee NF.
+  const DNR_STANDS_FS = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/Michigan_DNR_Public_Forest_Inventory_Data/FeatureServer/3';
+  const DNR_STANDS_MIN_ZOOM = 12;
+
+  const DNR_COVER = {
+    '411': { name: 'Northern Hardwood',  fill: '#D4A974', stroke: '#a07040' },
+    '412': { name: 'Oak',                fill: '#C96500', stroke: '#904800' },
+    '413': { name: 'Aspen',              fill: '#E8ED60', stroke: '#b0b020' },
+    '414': { name: 'Other Upland Decid', fill: '#FFE7BD', stroke: '#c0a870' },
+    '419': { name: 'Mixed Upland Decid', fill: '#DBC900', stroke: '#a09000' },
+    '421': { name: 'Planted Pine',       fill: '#90E090', stroke: '#409040' },
+    '422': { name: 'Natural Pine',       fill: '#00B000', stroke: '#007000' },
+    '423': { name: 'Other Upland Conif', fill: '#76947D', stroke: '#4a6850' },
+    '424': { name: 'Pine (OI)',          fill: '#90FA90', stroke: '#40b040' },
+    '429': { name: 'Mixed Upland Conif', fill: '#8CE6CC', stroke: '#40a888' },
+    '430': { name: 'Upland Mixed',       fill: '#B09C68', stroke: '#806838' },
+    '431': { name: 'Upland Conif Mix',   fill: '#5B9E5B', stroke: '#306830' },
+    '611': { name: 'Lowland Decid',      fill: '#B899C7', stroke: '#806090' },
+    '612': { name: 'Lowland Conifer',    fill: '#D696A5', stroke: '#a05870' },
+    '613': { name: 'Lowland Mixed',      fill: '#C888A0', stroke: '#906070' },
+    '310': { name: 'Herbaceous Open',    fill: '#E7FFC2', stroke: '#90c860' },
+    '320': { name: 'Upland Shrub',       fill: '#C2DB81', stroke: '#88a840' },
+    '622': { name: 'Lowland Shrub',      fill: '#A3C8D6', stroke: '#6090a0' },
+    '500': { name: 'Water',              fill: '#B0EBFF', stroke: '#60b0e0' },
+  };
+
+  function dnrCoverStyle(code) {
+    const key = String(code || '').slice(0, 3);
+    return DNR_COVER[key] || { fill: '#cccccc', stroke: '#888888' };
+  }
+
+  let dnrStandsLayer   = null;
+  let dnrStandsEnabled = false;
+  let dnrStandsTimer   = null;
+
+  async function loadDnrStandsLayer() {
+    if (!dnrStandsEnabled || map.getZoom() < DNR_STANDS_MIN_ZOOM) return;
+    const b = map.getBounds();
+    const q = new URLSearchParams({
+      geometry: `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`,
+      geometryType: 'esriGeometryEnvelope', inSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects',
+      outFields: 'CoverType,FirstOriginYear,ACRES,MeanBA,FCKey',
+      returnGeometry: 'true', outSR: '4326', f: 'json',
+      resultRecordCount: '500', where: '1=1'
+    });
+    let data;
+    try { data = await fetch(`${DNR_STANDS_FS}/query?${q}`).then(r => r.json()); }
+    catch(e) { return; }
+
+    const features = data.features || [];
+    if (dnrStandsLayer) map.removeLayer(dnrStandsLayer);
+    if (!features.length) { dnrStandsLayer = null; return; }
+
+    const geojson = {
+      type: 'FeatureCollection',
+      features: features.map(f => ({
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: f.geometry.rings },
+        properties: f.attributes
+      }))
+    };
+
+    dnrStandsLayer = L.geoJSON(geojson, {
+      style(f) {
+        const s = dnrCoverStyle(f.properties.CoverType);
+        return { color: s.stroke, weight: 1, fillColor: s.fill, fillOpacity: 0.5, opacity: 0.85 };
+      },
+      onEachFeature(feature, layer) {
+        const p   = feature.properties;
+        const key = String(p.CoverType || '').slice(0, 3);
+        const typeName = DNR_COVER[key]?.name || `Type ${p.CoverType}`;
+        const yr  = p.FirstOriginYear || '—';
+        const ac  = p.ACRES != null ? `${parseFloat(p.ACRES).toFixed(1)} ac` : '';
+        const ba  = p.MeanBA != null ? `${p.MeanBA} ft²/ac` : '—';
+        layer.bindTooltip(
+          `<b>DNR Stand</b> · ${ac}<br>${typeName}<br>Origin: ${yr} · BA: ${ba}<br><span style="font-size:10px;opacity:.7">${p.FCKey || ''}</span>`,
+          { sticky: true, opacity: 0.95 }
+        );
+      }
+    }).addTo(map);
+  }
+
+  document.getElementById('chk-dnr-stands').addEventListener('change', e => {
+    dnrStandsEnabled = e.target.checked;
+    if (dnrStandsEnabled) {
+      loadDnrStandsLayer();
+    } else {
+      if (dnrStandsLayer) { map.removeLayer(dnrStandsLayer); dnrStandsLayer = null; }
+    }
+  });
+
+  map.on('moveend', () => {
+    if (!dnrStandsEnabled) return;
+    clearTimeout(dnrStandsTimer);
+    dnrStandsTimer = setTimeout(loadDnrStandsLayer, 400);
+  });
+
+  map.on('zoomend', () => {
+    if (!dnrStandsEnabled) return;
+    if (map.getZoom() < DNR_STANDS_MIN_ZOOM) {
+      if (dnrStandsLayer) { map.removeLayer(dnrStandsLayer); dnrStandsLayer = null; }
+    } else {
+      loadDnrStandsLayer();
+    }
+  });
+
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
   // Fetches research-grade observations from the iNat API and renders as
   // interactive circle markers with hover tooltips showing species name,
@@ -3230,6 +3342,22 @@
       ].forEach(([label, color]) => {
         parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${label}</span>`);
       });
+    }
+
+    // DNR Forest Stands — cover type legend (only types currently loaded)
+    if (document.getElementById('chk-dnr-stands').checked && dnrStandsLayer) {
+      const seen = new Map();
+      dnrStandsLayer.eachLayer(l => {
+        const code = l.feature?.properties?.CoverType;
+        const key  = String(code || '').slice(0, 3);
+        if (!seen.has(key) && DNR_COVER[key]) seen.set(key, DNR_COVER[key]);
+      });
+      if (seen.size) {
+        parts.push('<span class="legend-section">DNR Forest Stands</span>');
+        seen.forEach((ct, key) => {
+          parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${ct.fill};border-color:${ct.stroke}"></span>${ct.name}</span>`);
+        });
+      }
     }
 
     // Pre-settlement vegetation — show only cover types visible in current view
