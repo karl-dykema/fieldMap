@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.47</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.48</div>
   </div>
 
   <div class="section">
@@ -880,8 +880,14 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-usfs-lands">
-      <span class="inat-dot" style="background:#2d6a4f"></span>
-      USFS Lands (MI)
+      Federal Lands (MI)
+      <span class="pl-legend">
+        <span class="pl-dot" style="background:#2d6a4f" title="Forest Service"></span>
+        <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
+        <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
+        <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
+        <span class="pl-dot" style="background:#8b6f3e" title="Bureau of Land Management"></span>
+      </span>
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-dnr-lands">
@@ -2514,10 +2520,19 @@
     }
   });
 
-  // ── USFS Lands (Michigan, static file) ───────────────────────────────
-  // usfs_mi_lands.geojson is pre-downloaded + simplified (2% vertices, ~1MB
-  // on disk, ~256KB gzipped). Loaded once per session, no API calls ever.
+  // ── Federal Lands (Michigan, static file) ────────────────────────────
+  // federal_lands_mi.geojson: all 5 federal agencies, pre-downloaded from
+  // USA_Federal_Lands, simplified to 2% vertices (~1.4MB → ~340KB gzipped).
+  // Loaded once per session, no API calls, color-coded by agency.
   const USFS_LANDS_MIN_ZOOM = 8;
+
+  const FED_AGENCY_STYLE = {
+    'Forest Service':           { fill: '#2d6a4f', stroke: '#1a4a33' },
+    'Fish and Wildlife Service':{ fill: '#3d7aaa', stroke: '#2a5a88' },
+    'National Park Service':    { fill: '#8b2f2f', stroke: '#6a1a1a' },
+    'Department of Defense':    { fill: '#6a6a3a', stroke: '#4a4a20' },
+    'Bureau of Land Management':{ fill: '#8b6f3e', stroke: '#6a5028' },
+  };
 
   let usfsLandsLayer    = null;
   let usfsLandsEnabled  = false;
@@ -2534,7 +2549,7 @@
     if (usfsLandsFetching) return;
     usfsLandsFetching = true;
     try {
-      const r = await fetch('usfs_mi_lands.geojson');
+      const r = await fetch('federal_lands_mi.geojson');
       usfsLandsGeojson = await r.json();
       renderUsfsLandsGeojson(usfsLandsGeojson);
     } catch (err) { console.warn('USFS lands load error', err); }
@@ -2545,12 +2560,16 @@
     if (!usfsLandsEnabled) return;
     if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
     usfsLandsLayer = L.geoJSON(geojson, {
-      style() {
-        return { color: '#1a4a33', weight: 1.2, fillColor: '#2d6a4f', fillOpacity: 0.4 };
+      style(feat) {
+        const agency = feat.properties.Agency || '';
+        const s = FED_AGENCY_STYLE[agency] || { fill: '#888', stroke: '#555' };
+        return { color: s.stroke, weight: 1.2, fillColor: s.fill, fillOpacity: 0.4 };
       },
       onEachFeature(feat, layer) {
-        const nm = feat.properties.unit_name || 'USFS';
-        layer.bindTooltip(`<b>${nm}</b>`);
+        const p      = feat.properties;
+        const nm     = (p.unit_name && p.unit_name !== p.Agency) ? p.unit_name : (p.Agency || 'Federal Land');
+        const agency = p.Agency || '';
+        layer.bindTooltip(`<b>${nm}</b><br><span style="opacity:.75">${agency}</span>`);
       },
     }).addTo(map);
   }
