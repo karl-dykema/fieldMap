@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.44</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.45</div>
   </div>
 
   <div class="section">
@@ -790,13 +790,82 @@
   </div>
 
   <div class="section">
-    <div class="section-label">Overlays</div>
-    <label class="check-item">
-      <input type="checkbox" id="chk-parcels"> Parcels
-    </label>
-    <div class="sel-mode-row">
-      <button class="sel-mode-btn" id="btn-select-mode">Select parcels</button>
+    <div class="section-label species-toggle" id="newaygo-toggle">
+      Newaygo County <span class="species-arrow">▾</span>
     </div>
+    <div id="newaygo-body">
+      <label class="check-item">
+        <input type="checkbox" id="chk-parcels"> Parcels
+      </label>
+      <div class="sel-mode-row">
+        <button class="sel-mode-btn" id="btn-select-mode">Select parcels</button>
+      </div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-roads"> Roads
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-contours"> Contours (5ft + Lake Depth)
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-soils"> Soils
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-public-lands">
+        Public Lands
+        <span class="pl-legend">
+          <span class="pl-dot" style="background:#7b5e9e" title="School Forests"></span>
+          <span class="pl-dot" style="background:#2d6a4f" title="USFS"></span>
+          <span class="pl-dot" style="background:#52796f" title="MI DNR"></span>
+          <span class="pl-dot" style="background:#8b6f3e" title="County / City"></span>
+          <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
+          <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
+          <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
+          <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
+          <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
+          <span class="pl-dot" style="background:#e87878" title="Churches"></span>
+          <span class="pl-dot" style="background:#7aa8c8" title="Land Bank"></span>
+          <span class="pl-dot" style="background:#a8a898" title="Road / MDOT"></span>
+          <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
+        </span>
+      </label>
+      <div class="section-label species-toggle" id="ag-toggle" style="margin-top:4px">
+        Agriculture <span class="species-arrow closed">▾</span>
+      </div>
+      <div id="ag-body" style="display:none">
+        <label class="check-item">
+          <input type="checkbox" id="chk-ag-parcels">
+          <span class="inat-dot" style="background:#b8993a"></span>
+          Ag Parcels (Class 101/102)
+        </label>
+        <label class="check-item">
+          <input type="checkbox" id="chk-drains">
+          Drains
+        </label>
+        <label class="check-item">
+          <input type="checkbox" id="chk-drain-districts">
+          Drain Districts
+        </label>
+        <label class="check-item">
+          <input type="checkbox" id="chk-cdl">
+          Cropland Data Layer (CDL)
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label species-toggle" id="other-counties-toggle">
+      Other Counties <span class="species-arrow closed">▾</span>
+    </div>
+    <div id="other-counties-body" style="display:none">
+      <div style="padding:8px 12px;font-size:11px;color:#888;font-style:italic;line-height:1.5">
+        Coming soon — county-specific layers (parcels, roads, contours) for neighboring counties.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Statewide</div>
     <label class="check-item">
       <input type="checkbox" id="chk-veg"> Pre-settlement Vegetation
     </label>
@@ -807,13 +876,6 @@
       <input type="checkbox" id="chk-lidar"> LiDAR Hillshade (3DEP)
     </label>
     <label class="check-item">
-      <input type="checkbox" id="chk-contours"> Contours (5ft + Lake Depth)
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-soils"> Soils
-    </label>
-
-    <label class="check-item">
       <input type="checkbox" id="chk-fbfm"> Fire Fuel Model
     </label>
     <label class="check-item">
@@ -823,7 +885,13 @@
       <input type="checkbox" id="chk-dnr-stands"> DNR Forest Stands
     </label>
     <label class="check-item">
-      <input type="checkbox" id="chk-roads"> Roads
+      <input type="checkbox" id="chk-dnr-roads"> DNR Forest Roads
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-treatments"> Forest Treatments
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-wetlands"> Wetlands (Part 303)
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-elec-transm">
@@ -833,54 +901,6 @@
       <input type="checkbox" id="chk-elec-areas">
       Electric Service Areas
     </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-wetlands"> Wetlands (Part 303)
-    </label>
-
-    <label class="check-item">
-      <input type="checkbox" id="chk-public-lands">
-      Public Lands
-      <span class="pl-legend">
-        <span class="pl-dot" style="background:#7b5e9e" title="School Forests"></span>
-        <span class="pl-dot" style="background:#2d6a4f" title="USFS"></span>
-        <span class="pl-dot" style="background:#52796f" title="MI DNR"></span>
-        <span class="pl-dot" style="background:#8b6f3e" title="County / City"></span>
-        <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
-        <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
-        <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
-        <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
-        <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
-        <span class="pl-dot" style="background:#e87878" title="Churches"></span>
-        <span class="pl-dot" style="background:#7aa8c8" title="Land Bank"></span>
-        <span class="pl-dot" style="background:#a8a898" title="Road / MDOT"></span>
-        <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
-      </span>
-    </label>
-  </div>
-
-  <div class="section">
-    <div class="section-label species-toggle" id="ag-toggle">
-      Agriculture <span class="species-arrow closed">▾</span>
-    </div>
-    <div id="ag-body" style="display:none">
-      <label class="check-item">
-        <input type="checkbox" id="chk-ag-parcels">
-        <span class="inat-dot" style="background:#b8993a"></span>
-        Ag Parcels (Class 101/102)
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-drains">
-        Drains
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-drain-districts">
-        Drain Districts
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-cdl">
-        Cropland Data Layer (CDL)
-      </label>
-    </div>
   </div>
 
   <div class="section">
@@ -1876,6 +1896,22 @@
     arrow.classList.toggle('closed', open);
   });
 
+  document.getElementById('newaygo-toggle').addEventListener('click', () => {
+    const body = document.getElementById('newaygo-body');
+    const arrow = document.querySelector('#newaygo-toggle .species-arrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
+  document.getElementById('other-counties-toggle').addEventListener('click', () => {
+    const body = document.getElementById('other-counties-body');
+    const arrow = document.querySelector('#other-counties-toggle .species-arrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
   // ── Wetlands (NWI) ───────────────────────────────────────────────
   const wetlandsLayer = L.tileLayer(
     'https://gisp.mcgi.state.mi.us/maps/rest/services/DEQ/wetlands_cache/MapServer/tile/{z}/{y}/{x}',
@@ -2227,6 +2263,165 @@
       if (dnrStandsLayer) { map.removeLayer(dnrStandsLayer); dnrStandsLayer = null; }
     } else {
       loadDnrStandsLayer();
+    }
+  });
+
+  // ── DNR Forest Roads ─────────────────────────────────────────────────
+  const DNR_ROADS_MIN_ZOOM = 11;
+  const DNR_ROADS_URL = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNR_ROADS/FeatureServer/0';
+
+  const DNR_ROAD_STYLE = {
+    0: { color: '#888888', weight: 2.5, label: 'Primary' },
+    1: { color: '#555555', weight: 2,   label: 'Secondary' },
+    2: { color: '#333333', weight: 1.5, label: 'Access Route' },
+  };
+
+  let dnrRoadsLayer   = null;
+  let dnrRoadsEnabled = false;
+  let dnrRoadsCache   = null; // { bounds, geojson }
+  let dnrRoadsTimer   = null;
+
+  async function loadDnrRoadsLayer() {
+    if (!dnrRoadsEnabled) return;
+    const z = map.getZoom();
+    if (z < DNR_ROADS_MIN_ZOOM) {
+      if (dnrRoadsLayer) { map.removeLayer(dnrRoadsLayer); dnrRoadsLayer = null; }
+      return;
+    }
+    const b  = map.getBounds();
+    if (dnrRoadsCache && dnrRoadsCache.bounds.contains(b)) {
+      renderDnrRoadsGeojson(dnrRoadsCache.geojson);
+      return;
+    }
+    const fb = b.pad(0.5);
+    const env = `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`;
+    const url = `${DNR_ROADS_URL}/query?where=1=1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=ROAD_NAME,ROAD_TYPE,SURFACE_TYPE,ORV_TRAIL&returnGeometry=true&f=geojson`;
+    try {
+      const r    = await fetch(url);
+      const geojson = await r.json();
+      dnrRoadsCache = { bounds: fb, geojson };
+      renderDnrRoadsGeojson(geojson);
+    } catch (err) { console.warn('DNR roads fetch error', err); }
+  }
+
+  function renderDnrRoadsGeojson(geojson) {
+    if (!dnrRoadsEnabled) return;
+    if (dnrRoadsLayer) { map.removeLayer(dnrRoadsLayer); dnrRoadsLayer = null; }
+    dnrRoadsLayer = L.geoJSON(geojson, {
+      style(feat) {
+        const t = feat.properties.ROAD_TYPE ?? 1;
+        const s = DNR_ROAD_STYLE[t] ?? DNR_ROAD_STYLE[1];
+        return { color: s.color, weight: s.weight, opacity: 0.9 };
+      },
+      onEachFeature(feat, layer) {
+        const p    = feat.properties;
+        const type = (DNR_ROAD_STYLE[p.ROAD_TYPE] ?? DNR_ROAD_STYLE[1]).label;
+        const name = p.ROAD_NAME || 'Unnamed';
+        const surf = p.SURFACE_TYPE || '—';
+        const orv  = p.ORV_TRAIL   ? ' · ORV' : '';
+        layer.bindTooltip(`<b>${name}</b><br>${type} · ${surf}${orv}`);
+      },
+    }).addTo(map);
+  }
+
+  document.getElementById('chk-dnr-roads').addEventListener('change', e => {
+    dnrRoadsEnabled = e.target.checked;
+    if (dnrRoadsEnabled) {
+      loadDnrRoadsLayer();
+    } else {
+      if (dnrRoadsLayer) { map.removeLayer(dnrRoadsLayer); dnrRoadsLayer = null; }
+      dnrRoadsCache = null;
+    }
+  });
+
+  map.on('moveend', () => {
+    if (!dnrRoadsEnabled) return;
+    clearTimeout(dnrRoadsTimer);
+    dnrRoadsTimer = setTimeout(loadDnrRoadsLayer, 400);
+  });
+
+  map.on('zoomend', () => {
+    if (!dnrRoadsEnabled) return;
+    if (map.getZoom() < DNR_ROADS_MIN_ZOOM) {
+      if (dnrRoadsLayer) { map.removeLayer(dnrRoadsLayer); dnrRoadsLayer = null; }
+    } else {
+      loadDnrRoadsLayer();
+    }
+  });
+
+  // ── DNR Forest Treatments ────────────────────────────────────────────
+  const DNR_TREAT_MIN_ZOOM = 12;
+  const DNR_TREAT_URL = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/Michigan_DNR_Public_Forest_Inventory_Data/FeatureServer/2';
+
+  let dnrTreatLayer   = null;
+  let dnrTreatEnabled = false;
+  let dnrTreatCache   = null;
+  let dnrTreatTimer   = null;
+
+  async function loadDnrTreatLayer() {
+    if (!dnrTreatEnabled) return;
+    const z = map.getZoom();
+    if (z < DNR_TREAT_MIN_ZOOM) {
+      if (dnrTreatLayer) { map.removeLayer(dnrTreatLayer); dnrTreatLayer = null; }
+      return;
+    }
+    const b  = map.getBounds();
+    if (dnrTreatCache && dnrTreatCache.bounds.contains(b)) {
+      renderDnrTreatGeojson(dnrTreatCache.geojson);
+      return;
+    }
+    const fb = b.pad(0.5);
+    const env = `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`;
+    const url = `${DNR_TREAT_URL}/query?where=1=1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=TreatmentName,Acres,DateTreatmentClosed,FeaturedSpecies&returnGeometry=true&f=geojson`;
+    try {
+      const r    = await fetch(url);
+      const geojson = await r.json();
+      dnrTreatCache = { bounds: fb, geojson };
+      renderDnrTreatGeojson(geojson);
+    } catch (err) { console.warn('DNR treatments fetch error', err); }
+  }
+
+  function renderDnrTreatGeojson(geojson) {
+    if (!dnrTreatEnabled) return;
+    if (dnrTreatLayer) { map.removeLayer(dnrTreatLayer); dnrTreatLayer = null; }
+    dnrTreatLayer = L.geoJSON(geojson, {
+      style() {
+        return { color: '#b05000', weight: 1.5, fillColor: '#f0a050', fillOpacity: 0.45 };
+      },
+      onEachFeature(feat, layer) {
+        const p    = feat.properties;
+        const name = p.TreatmentName || 'Unknown Treatment';
+        const ac   = p.Acres ? `${Number(p.Acres).toFixed(1)} ac` : '';
+        const yr   = p.DateTreatmentClosed ? p.DateTreatmentClosed.substring(0, 10) : '—';
+        const sp   = p.FeaturedSpecies || '';
+        const spLine = sp ? `<br><i>${sp}</i>` : '';
+        layer.bindTooltip(`<b>${name}</b><br>${ac} · Closed: ${yr}${spLine}`);
+      },
+    }).addTo(map);
+  }
+
+  document.getElementById('chk-treatments').addEventListener('change', e => {
+    dnrTreatEnabled = e.target.checked;
+    if (dnrTreatEnabled) {
+      loadDnrTreatLayer();
+    } else {
+      if (dnrTreatLayer) { map.removeLayer(dnrTreatLayer); dnrTreatLayer = null; }
+      dnrTreatCache = null;
+    }
+  });
+
+  map.on('moveend', () => {
+    if (!dnrTreatEnabled) return;
+    clearTimeout(dnrTreatTimer);
+    dnrTreatTimer = setTimeout(loadDnrTreatLayer, 400);
+  });
+
+  map.on('zoomend', () => {
+    if (!dnrTreatEnabled) return;
+    if (map.getZoom() < DNR_TREAT_MIN_ZOOM) {
+      if (dnrTreatLayer) { map.removeLayer(dnrTreatLayer); dnrTreatLayer = null; }
+    } else {
+      loadDnrTreatLayer();
     }
   });
 
