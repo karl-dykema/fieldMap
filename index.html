@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.51</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.52</div>
   </div>
 
   <div class="section">
@@ -887,6 +887,11 @@
       <input type="checkbox" id="chk-nf-inholdings">
       <span class="inat-dot" style="background:#c8a878;border:1px dashed #888;box-sizing:border-box"></span>
       NF Inholdings (non-FS)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-tribal">
+      <span class="inat-dot" style="background:#7a3f8a"></span>
+      Native Tribal Lands
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-dnr-lands">
@@ -2542,6 +2547,46 @@
       usfsLandsLayer.addTo(map);
     } else {
       if (usfsLandsLayer) map.removeLayer(usfsLandsLayer);
+    }
+  });
+
+  // ── Native Tribal Lands (static file) ───────────────────────────────
+  // 22 federal tribal reservation boundaries for MI + border-area tribes,
+  // sourced from Census TIGER. Loaded once per session.
+  let tribalLayer   = null;
+  let tribalGeojson = null;
+  let tribalFetching = false;
+
+  async function loadTribalLayer() {
+    if (tribalGeojson) { renderTribalGeojson(tribalGeojson); return; }
+    if (tribalFetching) return;
+    tribalFetching = true;
+    try {
+      const r = await fetch('tribal_lands.geojson');
+      tribalGeojson = await r.json();
+      renderTribalGeojson(tribalGeojson);
+    } catch (err) { console.warn('Tribal lands load error', err); }
+    finally { tribalFetching = false; }
+  }
+
+  function renderTribalGeojson(geojson) {
+    if (!document.getElementById('chk-tribal').checked) return;
+    if (tribalLayer) { map.removeLayer(tribalLayer); tribalLayer = null; }
+    tribalLayer = L.geoJSON(geojson, {
+      style() {
+        return { color: '#5a2a6a', weight: 1.5, fillColor: '#7a3f8a', fillOpacity: 0.35 };
+      },
+      onEachFeature(feat, layer) {
+        layer.bindTooltip(`<b>${feat.properties.NAME}</b>`);
+      },
+    }).addTo(map);
+  }
+
+  document.getElementById('chk-tribal').addEventListener('change', e => {
+    if (e.target.checked) {
+      loadTribalLayer();
+    } else {
+      if (tribalLayer) { map.removeLayer(tribalLayer); tribalLayer = null; }
     }
   });
 
