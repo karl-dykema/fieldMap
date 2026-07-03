@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.50</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.51</div>
   </div>
 
   <div class="section">
@@ -880,14 +880,13 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-usfs-lands">
-      Federal Lands (MI)
-      <span class="pl-legend">
-        <span class="pl-dot" style="background:#2d6a4f" title="Forest Service"></span>
-        <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
-        <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
-        <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
-        <span class="pl-dot" style="background:#8b6f3e" title="Bureau of Land Management"></span>
-      </span>
+      <span class="inat-dot" style="background:#2d6a4f"></span>
+      USFS Lands
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-nf-inholdings">
+      <span class="inat-dot" style="background:#c8a878;border:1px dashed #888;box-sizing:border-box"></span>
+      NF Inholdings (non-FS)
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-dnr-lands">
@@ -2527,12 +2526,11 @@
   const FED_LANDS_USFS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer';
   const FED_LANDS_OTHER_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer';
 
-  let usfsLandsLayer   = null;
-  let usfsLandsEnabled = false;
+  let usfsLandsLayer      = null;
+  let nfInholdingsLayer   = null;
 
   document.getElementById('chk-usfs-lands').addEventListener('change', e => {
-    usfsLandsEnabled = e.target.checked;
-    if (usfsLandsEnabled) {
+    if (e.target.checked) {
       if (!usfsLandsLayer) {
         usfsLandsLayer = L.esri.dynamicMapLayer({
           url: FED_LANDS_USFS_URL,
@@ -2544,6 +2542,22 @@
       usfsLandsLayer.addTo(map);
     } else {
       if (usfsLandsLayer) map.removeLayer(usfsLandsLayer);
+    }
+  });
+
+  document.getElementById('chk-nf-inholdings').addEventListener('change', e => {
+    if (e.target.checked) {
+      if (!nfInholdingsLayer) {
+        nfInholdingsLayer = L.esri.dynamicMapLayer({
+          url: FED_LANDS_USFS_URL,
+          opacity: 0.5,
+          layers: [0],
+          layerDefs: { 0: "ownerclassification='NON-FS'" },
+        });
+      }
+      nfInholdingsLayer.addTo(map);
+    } else {
+      if (nfInholdingsLayer) map.removeLayer(nfInholdingsLayer);
     }
   });
 
