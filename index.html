@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.48</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.49</div>
   </div>
 
   <div class="section">
@@ -2520,76 +2520,29 @@
     }
   });
 
-  // ── Federal Lands (Michigan, static file) ────────────────────────────
-  // federal_lands_mi.geojson: all 5 federal agencies, pre-downloaded from
-  // USA_Federal_Lands, simplified to 2% vertices (~1.4MB → ~340KB gzipped).
-  // Loaded once per session, no API calls, color-coded by agency.
-  const USFS_LANDS_MIN_ZOOM = 8;
+  // ── Federal Lands (dynamic map layer — server-rendered, no simplification) ──
+  // Uses L.esri.dynamicMapLayer against the USFS EDW BasicOwnership MapServer.
+  // Esri renders accurate imagery server-side; no file download, no distortion.
+  // Separate dynamicMapLayer for NWRs (FWS) via USA_Federal_Lands FeatureServer.
+  const FED_LANDS_USFS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer';
+  const FED_LANDS_OTHER_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer';
 
-  const FED_AGENCY_STYLE = {
-    'Forest Service':           { fill: '#2d6a4f', stroke: '#1a4a33' },
-    'Fish and Wildlife Service':{ fill: '#3d7aaa', stroke: '#2a5a88' },
-    'National Park Service':    { fill: '#8b2f2f', stroke: '#6a1a1a' },
-    'Department of Defense':    { fill: '#6a6a3a', stroke: '#4a4a20' },
-    'Bureau of Land Management':{ fill: '#8b6f3e', stroke: '#6a5028' },
-  };
-
-  let usfsLandsLayer    = null;
-  let usfsLandsEnabled  = false;
-  let usfsLandsGeojson  = null; // loaded once, kept for session
-  let usfsLandsFetching = false;
-
-  async function loadUsfsLandsLayer() {
-    if (!usfsLandsEnabled) return;
-    if (map.getZoom() < USFS_LANDS_MIN_ZOOM) {
-      if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
-      return;
-    }
-    if (usfsLandsGeojson) { renderUsfsLandsGeojson(usfsLandsGeojson); return; }
-    if (usfsLandsFetching) return;
-    usfsLandsFetching = true;
-    try {
-      const r = await fetch('federal_lands_mi.geojson');
-      usfsLandsGeojson = await r.json();
-      renderUsfsLandsGeojson(usfsLandsGeojson);
-    } catch (err) { console.warn('USFS lands load error', err); }
-    finally { usfsLandsFetching = false; }
-  }
-
-  function renderUsfsLandsGeojson(geojson) {
-    if (!usfsLandsEnabled) return;
-    if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
-    usfsLandsLayer = L.geoJSON(geojson, {
-      style(feat) {
-        const agency = feat.properties.Agency || '';
-        const s = FED_AGENCY_STYLE[agency] || { fill: '#888', stroke: '#555' };
-        return { color: s.stroke, weight: 1.2, fillColor: s.fill, fillOpacity: 0.4 };
-      },
-      onEachFeature(feat, layer) {
-        const p      = feat.properties;
-        const nm     = (p.unit_name && p.unit_name !== p.Agency) ? p.unit_name : (p.Agency || 'Federal Land');
-        const agency = p.Agency || '';
-        layer.bindTooltip(`<b>${nm}</b><br><span style="opacity:.75">${agency}</span>`);
-      },
-    }).addTo(map);
-  }
+  let usfsLandsLayer   = null;
+  let usfsLandsEnabled = false;
 
   document.getElementById('chk-usfs-lands').addEventListener('change', e => {
     usfsLandsEnabled = e.target.checked;
     if (usfsLandsEnabled) {
-      loadUsfsLandsLayer();
+      if (!usfsLandsLayer) {
+        usfsLandsLayer = L.esri.dynamicMapLayer({
+          url: FED_LANDS_USFS_URL,
+          opacity: 0.5,
+          layers: [0],
+        });
+      }
+      usfsLandsLayer.addTo(map);
     } else {
-      if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
-      // keep usfsLandsGeojson — no reason to re-fetch if re-enabled
-    }
-  });
-
-  map.on('zoomend', () => {
-    if (!usfsLandsEnabled) return;
-    if (map.getZoom() < USFS_LANDS_MIN_ZOOM) {
-      if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
-    } else {
-      loadUsfsLandsLayer();
+      if (usfsLandsLayer) map.removeLayer(usfsLandsLayer);
     }
   });
 
