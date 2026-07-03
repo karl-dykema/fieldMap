@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.57</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.58</div>
   </div>
 
   <div class="section">
@@ -2534,10 +2534,12 @@
   document.getElementById('chk-dnr-lands').addEventListener('change', e => {
     dnrLandsEnabled = e.target.checked;
     if (dnrLandsEnabled) {
-      loadDnrLandsLayer();
+      // If layer already built just re-add it; otherwise fetch
+      if (dnrLandsLayer) { dnrLandsLayer.addTo(map); }
+      else { loadDnrLandsLayer(); }
     } else {
-      if (dnrLandsLayer) { map.removeLayer(dnrLandsLayer); dnrLandsLayer = null; }
-      // keep dnrLandsCache — reuse if re-enabled in same area
+      if (dnrLandsLayer) map.removeLayer(dnrLandsLayer);
+      // keep dnrLandsLayer object and cache — re-add instantly on next enable
     }
   });
 
