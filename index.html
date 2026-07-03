@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.53</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.54</div>
   </div>
 
   <div class="section">
@@ -2593,11 +2593,20 @@
     if (!document.getElementById('chk-tribal').checked) return;
     if (tribalLayer) { map.removeLayer(tribalLayer); tribalLayer = null; }
     tribalLayer = L.geoJSON(geojson, {
-      style() {
-        return { color: '#5a2a6a', weight: 1.5, fillColor: '#7a3f8a', fillOpacity: 0.35 };
+      style(feat) {
+        const trust = feat.properties._type === 'trust';
+        return {
+          color:       '#5a2a6a',
+          weight:      trust ? 1.5 : 2,
+          dashArray:   trust ? '6 4' : null,
+          fillColor:   '#7a3f8a',
+          fillOpacity: trust ? 0.15 : 0.35,
+        };
       },
       onEachFeature(feat, layer) {
-        layer.bindTooltip(`<b>${feat.properties.NAME}</b>`);
+        const p    = feat.properties;
+        const tag  = p._type === 'trust' ? ' · off-res trust land' : ' · reservation';
+        layer.bindTooltip(`<b>${p.NAME}</b><span style="opacity:.7">${tag}</span>`);
       },
     }).addTo(map);
   }
