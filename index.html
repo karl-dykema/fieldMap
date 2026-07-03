@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.55</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.56</div>
   </div>
 
   <div class="section">
@@ -2466,15 +2466,15 @@
   });
 
   // ── MI DNR Lands (Statewide) ─────────────────────────────────────────
-  // Queried per-viewport at zoom 13+. Cache survives toggle-off so panning
-  // back into a cached area never re-hits the server.
+  // Paginated viewport fetch: service maxRecordCount=1000 so we loop with
+  // resultOffset until all features in the padded bbox are retrieved.
   const DNR_LOTS_URL       = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0';
-  const DNR_LANDS_MIN_ZOOM = 13;
+  const DNR_LANDS_MIN_ZOOM = 11;
 
-  let dnrLandsLayer   = null;
-  let dnrLandsEnabled = false;
-  let dnrLandsCache   = null; // { bounds, geojson } — kept alive even when toggled off
-  let dnrLandsTimer   = null;
+  let dnrLandsLayer    = null;
+  let dnrLandsEnabled  = false;
+  let dnrLandsCache    = null;
+  let dnrLandsTimer    = null;
   let dnrLandsFetching = false;
 
   async function loadDnrLandsLayer() {
@@ -2490,12 +2490,22 @@
       return;
     }
     dnrLandsFetching = true;
-    const fb  = b.pad(1.0); // 3× viewport — large pad so panning rarely re-fetches
+    const fb  = b.pad(0.5);
     const env = `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`;
-    const url = `${DNR_LOTS_URL}/query?where=1%3D1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=DivisionDepartment,Acreage,County&returnGeometry=true&resultRecordCount=500&f=geojson`;
+    const baseUrl = `${DNR_LOTS_URL}/query?where=1%3D1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=DivisionDepartment,Acreage,County&returnGeometry=true&resultRecordCount=1000&f=geojson`;
     try {
-      const r = await fetch(url);
-      const geojson = await r.json();
+      const allFeatures = [];
+      let offset = 0;
+      while (true) {
+        const r    = await fetch(`${baseUrl}&resultOffset=${offset}`);
+        const page = await r.json();
+        const feats = page.features || [];
+        allFeatures.push(...feats);
+        if (feats.length < 1000) break; // last page
+        offset += 1000;
+        if (offset > 10000) break;      // safety cap — 10k features max
+      }
+      const geojson = { type: 'FeatureCollection', features: allFeatures };
       dnrLandsCache = { bounds: fb, geojson };
       renderDnrLandsGeojson(geojson);
     } catch (err) { console.warn('DNR lands fetch error', err); }
