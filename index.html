@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.52</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.53</div>
   </div>
 
   <div class="section">
@@ -874,6 +874,9 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-lidar"> LiDAR Hillshade (3DEP)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-slope"> Slope Map (3DEP)
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-fbfm"> Fire Fuel Model
@@ -1795,8 +1798,10 @@
   });
 
   // ── USGS 3DEP LiDAR hillshade ─────────────────────────────────────
+  const DEP_URL   = 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer';
+
   const lidarLayer = L.esri.imageMapLayer({
-    url: 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer',
+    url: DEP_URL,
     renderingRule: { rasterFunction: 'Hillshade Multidirectional' },
     opacity: 0.55,
     attribution: 'USGS 3DEP Elevation'
@@ -1804,6 +1809,21 @@
 
   document.getElementById('chk-lidar').addEventListener('change', e => {
     e.target.checked ? lidarLayer.addTo(map) : map.removeLayer(lidarLayer);
+  });
+
+  // ── USGS 3DEP Slope Map ────────────────────────────────────────────
+  // Same ImageServer as LiDAR, different raster function. 'Slope Map' gives
+  // a USGS-classified color ramp (flat=green → steep=red), useful for fire
+  // planning. Works statewide at any zoom.
+  const slopeLayer = L.esri.imageMapLayer({
+    url: DEP_URL,
+    renderingRule: { rasterFunction: 'Slope Map' },
+    opacity: 0.6,
+    attribution: 'USGS 3DEP Elevation'
+  });
+
+  document.getElementById('chk-slope').addEventListener('change', e => {
+    e.target.checked ? slopeLayer.addTo(map) : map.removeLayer(slopeLayer);
   });
 
   // ── County layers (contours + soils) ─────────────────────────────
