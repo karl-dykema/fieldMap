@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.46</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.47</div>
   </div>
 
   <div class="section">
@@ -2436,16 +2436,19 @@
   });
 
   // ── MI DNR Lands (Statewide) ─────────────────────────────────────────
-  const DNR_LOTS_URL  = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0';
-  const DNR_LANDS_MIN_ZOOM = 10;
+  // Queried per-viewport at zoom 13+. Cache survives toggle-off so panning
+  // back into a cached area never re-hits the server.
+  const DNR_LOTS_URL       = 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0';
+  const DNR_LANDS_MIN_ZOOM = 13;
 
   let dnrLandsLayer   = null;
   let dnrLandsEnabled = false;
-  let dnrLandsCache   = null;
+  let dnrLandsCache   = null; // { bounds, geojson } — kept alive even when toggled off
   let dnrLandsTimer   = null;
+  let dnrLandsFetching = false;
 
   async function loadDnrLandsLayer() {
-    if (!dnrLandsEnabled) return;
+    if (!dnrLandsEnabled || dnrLandsFetching) return;
     const z = map.getZoom();
     if (z < DNR_LANDS_MIN_ZOOM) {
       if (dnrLandsLayer) { map.removeLayer(dnrLandsLayer); dnrLandsLayer = null; }
@@ -2456,15 +2459,17 @@
       renderDnrLandsGeojson(dnrLandsCache.geojson);
       return;
     }
-    const fb  = b.pad(0.5);
+    dnrLandsFetching = true;
+    const fb  = b.pad(1.0); // 3× viewport — large pad so panning rarely re-fetches
     const env = `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`;
-    const url = `${DNR_LOTS_URL}/query?where=1=1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=DivisionDepartment,Acreage,LegalDescription,County&returnGeometry=true&f=geojson`;
+    const url = `${DNR_LOTS_URL}/query?where=1%3D1&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=DivisionDepartment,Acreage,County&returnGeometry=true&resultRecordCount=500&f=geojson`;
     try {
       const r = await fetch(url);
       const geojson = await r.json();
       dnrLandsCache = { bounds: fb, geojson };
       renderDnrLandsGeojson(geojson);
     } catch (err) { console.warn('DNR lands fetch error', err); }
+    finally { dnrLandsFetching = false; }
   }
 
   function renderDnrLandsGeojson(geojson) {
@@ -2478,7 +2483,7 @@
         const p  = feat.properties;
         const nm = p.DivisionDepartment || 'MI DNR';
         const ac = p.Acreage ? `${Number(p.Acreage).toFixed(1)} ac` : '';
-        const co = p.County ? ` · ${p.County}` : '';
+        const co = p.County  ? ` · ${p.County}`                     : '';
         layer.bindTooltip(`<b>${nm}</b>${co}<br>${ac}`);
       },
     }).addTo(map);
@@ -2490,14 +2495,14 @@
       loadDnrLandsLayer();
     } else {
       if (dnrLandsLayer) { map.removeLayer(dnrLandsLayer); dnrLandsLayer = null; }
-      dnrLandsCache = null;
+      // keep dnrLandsCache — reuse if re-enabled in same area
     }
   });
 
   map.on('moveend', () => {
     if (!dnrLandsEnabled) return;
     clearTimeout(dnrLandsTimer);
-    dnrLandsTimer = setTimeout(loadDnrLandsLayer, 400);
+    dnrLandsTimer = setTimeout(loadDnrLandsLayer, 600);
   });
 
   map.on('zoomend', () => {
@@ -2509,36 +2514,31 @@
     }
   });
 
-  // ── USFS Lands (Statewide, Michigan) ─────────────────────────────────
-  const USFS_LANDS_URL     = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Federal_Lands/FeatureServer/0';
+  // ── USFS Lands (Michigan, static file) ───────────────────────────────
+  // usfs_mi_lands.geojson is pre-downloaded + simplified (2% vertices, ~1MB
+  // on disk, ~256KB gzipped). Loaded once per session, no API calls ever.
   const USFS_LANDS_MIN_ZOOM = 8;
 
-  let usfsLandsLayer   = null;
-  let usfsLandsEnabled = false;
-  let usfsLandsCache   = null;
-  let usfsLandsTimer   = null;
+  let usfsLandsLayer    = null;
+  let usfsLandsEnabled  = false;
+  let usfsLandsGeojson  = null; // loaded once, kept for session
+  let usfsLandsFetching = false;
 
   async function loadUsfsLandsLayer() {
     if (!usfsLandsEnabled) return;
-    const z = map.getZoom();
-    if (z < USFS_LANDS_MIN_ZOOM) {
+    if (map.getZoom() < USFS_LANDS_MIN_ZOOM) {
       if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
       return;
     }
-    const b = map.getBounds();
-    if (usfsLandsCache && usfsLandsCache.bounds.contains(b)) {
-      renderUsfsLandsGeojson(usfsLandsCache.geojson);
-      return;
-    }
-    const fb  = b.pad(0.5);
-    const env = `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`;
-    const url = `${USFS_LANDS_URL}/query?where=Adm_Code='FS'&geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=Unit_Name,GIS_Acres,State&returnGeometry=true&f=geojson`;
+    if (usfsLandsGeojson) { renderUsfsLandsGeojson(usfsLandsGeojson); return; }
+    if (usfsLandsFetching) return;
+    usfsLandsFetching = true;
     try {
-      const r = await fetch(url);
-      const geojson = await r.json();
-      usfsLandsCache = { bounds: fb, geojson };
-      renderUsfsLandsGeojson(geojson);
-    } catch (err) { console.warn('USFS lands fetch error', err); }
+      const r = await fetch('usfs_mi_lands.geojson');
+      usfsLandsGeojson = await r.json();
+      renderUsfsLandsGeojson(usfsLandsGeojson);
+    } catch (err) { console.warn('USFS lands load error', err); }
+    finally { usfsLandsFetching = false; }
   }
 
   function renderUsfsLandsGeojson(geojson) {
@@ -2549,10 +2549,8 @@
         return { color: '#1a4a33', weight: 1.2, fillColor: '#2d6a4f', fillOpacity: 0.4 };
       },
       onEachFeature(feat, layer) {
-        const p  = feat.properties;
-        const nm = p.Unit_Name || 'USFS';
-        const ac = p.GIS_Acres ? `${Number(p.GIS_Acres).toFixed(0)} ac` : '';
-        layer.bindTooltip(`<b>${nm}</b><br>${ac}`);
+        const nm = feat.properties.unit_name || 'USFS';
+        layer.bindTooltip(`<b>${nm}</b>`);
       },
     }).addTo(map);
   }
@@ -2563,14 +2561,8 @@
       loadUsfsLandsLayer();
     } else {
       if (usfsLandsLayer) { map.removeLayer(usfsLandsLayer); usfsLandsLayer = null; }
-      usfsLandsCache = null;
+      // keep usfsLandsGeojson — no reason to re-fetch if re-enabled
     }
-  });
-
-  map.on('moveend', () => {
-    if (!usfsLandsEnabled) return;
-    clearTimeout(usfsLandsTimer);
-    usfsLandsTimer = setTimeout(loadUsfsLandsLayer, 400);
   });
 
   map.on('zoomend', () => {
