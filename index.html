@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.43</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.44</div>
   </div>
 
   <div class="section">
@@ -1974,6 +1974,7 @@
   let fsvegLayer   = null;
   let fsvegEnabled = false;
   let fsvegTimer   = null;
+  let fsvegCache   = null; // { bounds: L.LatLngBounds, geojson }
 
   function fsvegOriginColor(yr) {
     if (!yr) return { fill: '#aaaaaa', stroke: '#888888' };
@@ -1989,7 +1990,17 @@
   async function loadFsvegLayer() {
     if (!fsvegEnabled || map.getZoom() < FSVEG_MIN_ZOOM) return;
     const b = map.getBounds();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+
+    // Serve from cache if current view is fully covered
+    if (fsvegCache && fsvegCache.bounds.contains(b)) {
+      renderFsvegGeojson(fsvegCache.geojson);
+      return;
+    }
+
+    // Fetch 2× expanded bbox and cache it
+    const pad = 0.5;
+    const fb = b.pad(pad);
+    const bbox = `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`;
 
     let standsData;
     try {
@@ -1998,7 +2009,7 @@
         spatialRel: 'esriSpatialRelIntersects',
         outFields: 'OBJECTID,SPATIAL_ID,LOCATION,POLY_ID,ACRES,SAMPLE_DATE',
         returnGeometry: 'true', outSR: '4326', f: 'json',
-        resultRecordCount: '300', where: '1=1'
+        resultRecordCount: '500', where: '1=1'
       });
       standsData = await fetch(`${FSVEG_FS}/1/query?${q}`).then(r => r.json());
     } catch(e) { return; }
@@ -2044,6 +2055,11 @@
       })
     };
 
+    fsvegCache = { bounds: fb, geojson };
+    renderFsvegGeojson(geojson);
+  }
+
+  function renderFsvegGeojson(geojson) {
     if (fsvegLayer) map.removeLayer(fsvegLayer);
     fsvegLayer = L.geoJSON(geojson, {
       style(f) {
@@ -2052,14 +2068,14 @@
       },
       onEachFeature(feature, layer) {
         const p = feature.properties;
-        const yr      = p.year_of_origin || '—';
-        const coverType = p.ev_name || '—';
-        const ba      = p.basal_area != null ? `${p.basal_area} ft²/ac` : '—';
-        const dbh     = p.dbh != null ? `${p.dbh}" QMD` : '—';
-        const ac      = p.acres != null ? `${parseFloat(p.acres).toFixed(1)} ac` : '';
+        const yr       = p.year_of_origin || '—';
+        const evName   = p.ev_name || '—';
+        const ba       = p.basal_area != null ? `${p.basal_area} ft²/ac` : '—';
+        const dbh      = p.dbh != null ? `${p.dbh}" QMD` : '—';
+        const ac       = p.acres != null ? `${parseFloat(p.acres).toFixed(1)} ac` : '';
         const sampleYr = p.sample_date ? new Date(p.sample_date).getFullYear() : '?';
         layer.bindTooltip(
-          `<b>USFS Stand</b> · ${ac}<br>Origin: ${yr} · BA: ${ba}<br>DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">Survey ${sampleYr} · LOC ${p.location}</span>`,
+          `<b>USFS Stand</b> · ${ac}<br>${evName}<br>Origin: ${yr} · BA: ${ba}<br>DBH: ${dbh}<br><span style="font-size:10px;opacity:.7">Survey ${sampleYr} · LOC ${p.location}</span>`,
           { sticky: true, opacity: 0.95 }
         );
       }
@@ -2072,6 +2088,7 @@
       loadFsvegLayer();
     } else {
       if (fsvegLayer) { map.removeLayer(fsvegLayer); fsvegLayer = null; }
+      fsvegCache = null;
     }
   });
 
@@ -2126,12 +2143,20 @@
   let dnrStandsLayer   = null;
   let dnrStandsEnabled = false;
   let dnrStandsTimer   = null;
+  let dnrStandsCache   = null; // { bounds, geojson }
 
   async function loadDnrStandsLayer() {
     if (!dnrStandsEnabled || map.getZoom() < DNR_STANDS_MIN_ZOOM) return;
     const b = map.getBounds();
+
+    if (dnrStandsCache && dnrStandsCache.bounds.contains(b)) {
+      renderDnrStandsGeojson(dnrStandsCache.geojson);
+      return;
+    }
+
+    const fb = b.pad(0.5);
     const q = new URLSearchParams({
-      geometry: `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`,
+      geometry: `${fb.getWest()},${fb.getSouth()},${fb.getEast()},${fb.getNorth()}`,
       geometryType: 'esriGeometryEnvelope', inSR: '4326',
       spatialRel: 'esriSpatialRelIntersects',
       outFields: 'CoverType,FirstOriginYear,ACRES,MeanBA,FCKey',
@@ -2143,8 +2168,7 @@
     catch(e) { return; }
 
     const features = data.features || [];
-    if (dnrStandsLayer) map.removeLayer(dnrStandsLayer);
-    if (!features.length) { dnrStandsLayer = null; return; }
+    if (!features.length) { if (dnrStandsLayer) { map.removeLayer(dnrStandsLayer); dnrStandsLayer = null; } return; }
 
     const geojson = {
       type: 'FeatureCollection',
@@ -2155,6 +2179,12 @@
       }))
     };
 
+    dnrStandsCache = { bounds: fb, geojson };
+    renderDnrStandsGeojson(geojson);
+  }
+
+  function renderDnrStandsGeojson(geojson) {
+    if (dnrStandsLayer) map.removeLayer(dnrStandsLayer);
     dnrStandsLayer = L.geoJSON(geojson, {
       style(f) {
         const s = dnrCoverStyle(f.properties.CoverType);
@@ -2181,6 +2211,7 @@
       loadDnrStandsLayer();
     } else {
       if (dnrStandsLayer) { map.removeLayer(dnrStandsLayer); dnrStandsLayer = null; }
+      dnrStandsCache = null;
     }
   });
 
