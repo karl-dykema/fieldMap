@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.58</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.59</div>
   </div>
 
   <div class="section">
@@ -890,6 +890,15 @@
       <input type="checkbox" id="chk-nf-inholdings">
       <span class="inat-dot" style="background:#c8a878;border:1px dashed #888;box-sizing:border-box"></span>
       NF Inholdings (non-FS)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-fed-other">
+      Federal Lands (NPS/FWS/DoD)
+      <span class="pl-legend">
+        <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
+        <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
+        <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
+      </span>
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-tribal">
@@ -2630,6 +2639,53 @@
       loadTribalLayer();
     } else {
       if (tribalLayer) { map.removeLayer(tribalLayer); tribalLayer = null; }
+    }
+  });
+
+  // ── NPS / FWS / DoD Federal Lands (static file) ──────────────────────
+  const FED_OTHER_STYLE = {
+    'National Park Service':    { fill: '#8b2f2f', stroke: '#6a1a1a' },
+    'Fish and Wildlife Service':{ fill: '#3d7aaa', stroke: '#2a5a88' },
+    'Department of Defense':    { fill: '#6a6a3a', stroke: '#4a4a20' },
+  };
+
+  let fedOtherLayer   = null;
+  let fedOtherGeojson = null;
+  let fedOtherFetching = false;
+
+  async function loadFedOtherLayer() {
+    if (fedOtherGeojson) { renderFedOtherGeojson(fedOtherGeojson); return; }
+    if (fedOtherFetching) return;
+    fedOtherFetching = true;
+    try {
+      const r = await fetch('federal_other_mi.geojson');
+      fedOtherGeojson = await r.json();
+      renderFedOtherGeojson(fedOtherGeojson);
+    } catch (err) { console.warn('Federal other lands error', err); }
+    finally { fedOtherFetching = false; }
+  }
+
+  function renderFedOtherGeojson(geojson) {
+    if (!document.getElementById('chk-fed-other').checked) return;
+    if (fedOtherLayer) { fedOtherLayer.addTo(map); return; } // re-add existing
+    fedOtherLayer = L.geoJSON(geojson, {
+      style(feat) {
+        const s = FED_OTHER_STYLE[feat.properties.Agency] || { fill:'#888', stroke:'#555' };
+        return { color: s.stroke, weight: 1.2, fillColor: s.fill, fillOpacity: 0.4 };
+      },
+      onEachFeature(feat, layer) {
+        const p  = feat.properties;
+        const nm = (p.unit_name && p.unit_name !== p.Agency) ? p.unit_name : p.Agency;
+        layer.bindTooltip(`<b>${nm}</b><br><span style="opacity:.75">${p.Agency}</span>`);
+      },
+    }).addTo(map);
+  }
+
+  document.getElementById('chk-fed-other').addEventListener('change', e => {
+    if (e.target.checked) {
+      loadFedOtherLayer();
+    } else {
+      if (fedOtherLayer) map.removeLayer(fedOtherLayer);
     }
   });
 
