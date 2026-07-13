@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.59</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.60</div>
   </div>
 
   <div class="section">
@@ -787,6 +787,24 @@
     <label class="radio-item">
       <input type="radio" name="base" value="topo"> Topo
     </label>
+    <label class="radio-item">
+      <input type="radio" name="base" value="histtopo"> Historical Topo
+    </label>
+    <div id="histtopo-year-row" style="display:none; margin:6px 0 0 8px;">
+      <label style="font-size:12px; color:#555; display:flex; align-items:center; gap:6px;">
+        Year:
+        <select id="histtopo-year" style="flex:1; font-size:12px; padding:2px 4px;"></select>
+      </label>
+    </div>
+    <label class="radio-item">
+      <input type="radio" name="base" value="miimagery"> MI Imagery (dated)
+    </label>
+    <div id="miimagery-year-row" style="display:none; margin:6px 0 0 8px;">
+      <label style="font-size:12px; color:#555; display:flex; align-items:center; gap:6px;">
+        Year:
+        <select id="miimagery-year" style="flex:1; font-size:12px; padding:2px 4px;"></select>
+      </label>
+    </div>
   </div>
 
   <div class="section">
@@ -912,6 +930,16 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-fsveg"> USFS Forest Stands
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-mrds">
+      <span class="inat-dot" style="background:#a0522d"></span>
+      Mineral Sites (USGS MRDS)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-plss">
+      <span class="inat-dot" style="background:#444; border:1px dashed #888; box-sizing:border-box"></span>
+      PLSS Section Grid
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-dnr-stands"> DNR Forest Stands
@@ -1344,7 +1372,39 @@
     topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles © Esri',
       maxZoom: 19
+    }),
+    // Scanned USGS topo quads (1884–2006), served via Esri's time-enabled mosaic ImageServer.
+    // Defaults to the most recent edition per area; use the Year dropdown to pick an earlier one.
+    histtopo: L.esri.imageMapLayer({
+      url: 'https://historical1.arcgis.com/arcgis/rest/services/USGS_Historical_Topographic_Maps/ImageServer',
+      attribution: 'Historical Topographic Map Collection courtesy of USGS, Esri',
+      maxZoom: 19
+    }),
+    // Michigan's own dated orthoimagery series (imagery.michigan.gov) - unlike the
+    // 1953 photos, these are already professionally orthorectified statewide
+    // mosaics, so no manual georeferencing is needed. Starts on the oldest year;
+    // the Year dropdown swaps in a different year's ImageServer entirely (each
+    // year is a separate service, not a time filter on one service).
+    miimagery: L.esri.imageMapLayer({
+      url: 'https://imagery.michigan.gov/server/rest/services/Michigan_NAPP_1998/ImageServer',
+      attribution: 'Michigan Statewide Imagery (imagery.michigan.gov)',
+      maxZoom: 19
     })
+  };
+
+  const MI_IMAGERY_YEARS = {
+    '1998': 'Michigan_NAPP_1998',
+    '2005': 'Michigan_NAIP_2005',
+    '2006': 'Michigan_NAIP_2006',
+    '2009': 'Michigan_NAIP_2009',
+    '2010': 'Michigan_NAIP_2010',
+    '2012': 'Michigan_NAIP_2012',
+    '2014': 'Michigan_NAIP_2014',
+    '2016': 'Michigan_NAIP_2016',
+    '2018': 'Michigan_NAIP_2018',
+    '2020': 'Michigan_NAIP_2020',
+    '2022': 'Michigan_NAIP_2022',
+    '2024': 'Michigan_imagery_2024'
   };
 
   // ── Map init ──────────────────────────────────────────────────────
@@ -1434,11 +1494,92 @@
         badge.textContent = 'USGS Ortho (GPS-accurate)';
         badge.style.display = '';
 
+      } else if (currentBaseKey === 'histtopo') {
+        badge.textContent = histTopoYear ? `Historical Topo: ${histTopoYear}` : 'Historical Topo';
+        badge.style.display = '';
+
       } else {
         badge.style.display = 'none';
       }
     }, 600);
   }
+
+  // ── Historical Topo: year picker ────────────────────────────────────
+  // The ImageServer time field (DateCurrent) is per-quad, so available years
+  // vary by location. Query the current view's extent to populate real options.
+  let histTopoYear = null;
+  const histTopoYearSelect = document.getElementById('histtopo-year');
+  const histTopoYearRow    = document.getElementById('histtopo-year-row');
+  let _histTopoYearsFetchedFor = null;
+
+  function applyHistTopoYear(year) {
+    histTopoYear = year;
+    const layer = baseLayers.histtopo;
+    if (year) {
+      layer.options.from = new Date(Number(year), 0, 1);
+      layer.options.to   = new Date(Number(year), 11, 31);
+    } else {
+      delete layer.options.from;
+      delete layer.options.to;
+    }
+    if (map.hasLayer(layer)) layer._update();
+    if (currentBaseKey === 'histtopo') updateImageryDates();
+  }
+
+  async function refreshHistTopoYears() {
+    const b = map.getBounds();
+    const key = b.toBBoxString();
+    if (_histTopoYearsFetchedFor === key) return;
+    _histTopoYearsFetchedFor = key;
+    try {
+      const geom = encodeURIComponent(JSON.stringify({
+        xmin: b.getWest(), ymin: b.getSouth(),
+        xmax: b.getEast(), ymax: b.getNorth(),
+        spatialReference: { wkid: 4326 }
+      }));
+      const url = 'https://historical1.arcgis.com/arcgis/rest/services/USGS_Historical_Topographic_Maps/ImageServer/query' +
+        `?geometry=${geom}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects` +
+        '&outFields=Date_On_Map&returnGeometry=false&f=json';
+      const data = await fetch(url).then(r => r.json());
+      const years = [...new Set((data.features || [])
+        .map(f => f.attributes.Date_On_Map).filter(Boolean))].sort((a, b) => b - a);
+      histTopoYearSelect.innerHTML = '<option value="">Most recent available</option>' +
+        years.map(y => `<option value="${y}">${y}</option>`).join('');
+      if (histTopoYear && years.includes(Number(histTopoYear))) {
+        histTopoYearSelect.value = histTopoYear;
+      }
+    } catch {
+      histTopoYearSelect.innerHTML = '<option value="">Most recent available</option>';
+    }
+  }
+
+  histTopoYearSelect.addEventListener('change', e => applyHistTopoYear(e.target.value || null));
+
+  // ── MI Imagery: year picker ─────────────────────────────────────────
+  // Each year is a separate ImageServer (not a time filter), so switching
+  // years means swapping baseLayers.miimagery for a new layer instance.
+  const miImageryYearSelect = document.getElementById('miimagery-year');
+  const miImageryYearRow    = document.getElementById('miimagery-year-row');
+
+  miImageryYearSelect.innerHTML = Object.keys(MI_IMAGERY_YEARS)
+    .map(y => `<option value="${y}">${y}</option>`).join('');
+  miImageryYearSelect.value = '1998';
+
+  function applyMiImageryYear(year) {
+    const wasActive = map.hasLayer(baseLayers.miimagery);
+    if (wasActive) map.removeLayer(baseLayers.miimagery);
+    baseLayers.miimagery = L.esri.imageMapLayer({
+      url: `https://imagery.michigan.gov/server/rest/services/${MI_IMAGERY_YEARS[year]}/ImageServer`,
+      attribution: 'Michigan Statewide Imagery (imagery.michigan.gov)',
+      maxZoom: 19
+    });
+    if (wasActive) {
+      currentBase = baseLayers.miimagery;
+      map.addLayer(currentBase);
+    }
+  }
+
+  miImageryYearSelect.addEventListener('change', e => applyMiImageryYear(e.target.value));
 
   document.querySelectorAll('input[name="base"]').forEach(radio => {
     radio.addEventListener('change', e => {
@@ -1448,8 +1589,15 @@
       map.addLayer(currentBase);
       document.querySelectorAll('.radio-item').forEach(el => el.classList.remove('active'));
       e.target.closest('.radio-item').classList.add('active');
+      histTopoYearRow.style.display = currentBaseKey === 'histtopo' ? '' : 'none';
+      if (currentBaseKey === 'histtopo') refreshHistTopoYears();
+      miImageryYearRow.style.display = currentBaseKey === 'miimagery' ? '' : 'none';
       updateImageryDates();
     });
+  });
+
+  map.on('moveend', () => {
+    if (currentBaseKey === 'histtopo') refreshHistTopoYears();
   });
 
   // ── Fuzzy owner grouping ──────────────────────────────────────────
@@ -1833,6 +1981,37 @@
 
   document.getElementById('chk-slope').addEventListener('change', e => {
     e.target.checked ? slopeLayer.addTo(map) : map.removeLayer(slopeLayer);
+  });
+
+  // ── USGS Mineral Resources Data System (MRDS) ───────────────────────
+  // Mostly sand/gravel pits in this area - a land-use/industry history layer.
+  const mrdsLayer = L.esri.featureLayer({
+    url: 'https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Mineral_Resources_Data_System_MRDS_Compact_Version/FeatureServer/0',
+    pointToLayer: (geojson, latlng) => L.circleMarker(latlng, {
+      radius: 6, color: '#6b3a1f', weight: 1.5, fillColor: '#a0522d', fillOpacity: 0.8
+    }),
+    onEachFeature: (f, layer) => {
+      const p = f.properties;
+      layer.bindPopup(`<b>${p.SITE_NAME || 'Unnamed site'}</b><br>${p.DEV_STAT || ''}` +
+        (p.URL ? `<br><a href="${p.URL}" target="_blank" rel="noopener">USGS MRDS record ↗</a>` : ''));
+    },
+    attribution: 'USGS Mineral Resources Data System'
+  });
+  document.getElementById('chk-mrds').addEventListener('change', e => {
+    e.target.checked ? mrdsLayer.addTo(map) : map.removeLayer(mrdsLayer);
+  });
+
+  // ── BLM PLSS section grid ───────────────────────────────────────────
+  // Original township/range/section survey lines - a stable historical
+  // reference grid, pairs well with Historical Topo.
+  const plssLayer = L.esri.dynamicMapLayer({
+    url: 'https://gis.blm.gov/arcgis/rest/services/Cadastral/BLM_Natl_PLSS_CadNSDI/MapServer',
+    layers: [1, 2],
+    opacity: 0.7,
+    attribution: 'BLM National PLSS CadNSDI'
+  });
+  document.getElementById('chk-plss').addEventListener('change', e => {
+    e.target.checked ? plssLayer.addTo(map) : map.removeLayer(plssLayer);
   });
 
   // ── County layers (contours + soils) ─────────────────────────────
