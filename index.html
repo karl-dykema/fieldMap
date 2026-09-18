@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.60</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.61</div>
   </div>
 
   <div class="section">
@@ -846,6 +846,34 @@
           <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
         </span>
       </label>
+      <div class="section-label species-toggle" id="atlas1880-toggle" style="margin-top:4px">
+        1880 Atlas <span class="species-arrow closed">▾</span>
+      </div>
+      <div id="atlas1880-body" style="display:none">
+        <label class="check-item">
+          <input type="checkbox" id="chk-atlas-twp">
+          <span class="inat-dot" style="background:#b8a878"></span>
+          Croton Twp plat (1880)
+        </label>
+        <label class="check-item" style="padding-top:0">
+          <input type="range" id="atlas-twp-op" min="10" max="100" value="80"
+                 style="flex:1;margin-left:20px" title="Opacity">
+        </label>
+        <label class="check-item">
+          <input type="checkbox" id="chk-atlas-vil">
+          <span class="inat-dot" style="background:#9ab88a"></span>
+          Croton village (1880)
+        </label>
+        <label class="check-item" style="padding-top:0">
+          <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
+                 style="flex:1;margin-left:20px" title="Opacity">
+        </label>
+        <div style="padding:2px 12px 9px;font-size:10px;color:#888;line-height:1.45">
+          Landowner plat, 1880 county atlas. Township sheet covers E&nbsp;3&nbsp;mi of
+          T12N&nbsp;R12W + all of T12N&nbsp;R11W. Village inset is pre-Croton-Dam (1907),
+          so the river predates the pond.
+        </div>
+      </div>
       <div class="section-label species-toggle" id="ag-toggle" style="margin-top:4px">
         Agriculture <span class="species-arrow closed">▾</span>
       </div>
@@ -2130,6 +2158,41 @@
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : '';
     arrow.classList.toggle('closed', open);
+  });
+
+  // ── 1880 county atlas overlays ───────────────────────────
+  // Georeferenced from the scanned atlas sheet. The township plat was warped
+  // per-section against BLM PLSS corners (10x7 node lattice), which also
+  // absorbs the fold between atlas pages 12 and 13. The village inset is
+  // north-up and placed from its printed scale (400 ft = 1 in at 389.6 DPI)
+  // pinned to the two section-line marks it draws.
+  const ATLAS_TWP_BOUNDS = [[43.380752, -85.742840], [43.468118, -85.562353]];
+  const ATLAS_VIL_BOUNDS = [[43.435945, -85.670081], [43.445605, -85.656245]];
+
+  const atlasTwpLayer = L.imageOverlay('atlas1880_croton_twp.jpg', ATLAS_TWP_BOUNDS,
+    { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
+  const atlasVilLayer = L.imageOverlay('atlas1880_croton_village.jpg', ATLAS_VIL_BOUNDS,
+    { opacity: 0.9, attribution: '1880 Newaygo County atlas' });
+
+  document.getElementById('atlas1880-toggle').addEventListener('click', () => {
+    const body  = document.getElementById('atlas1880-body');
+    const arrow = document.querySelector('#atlas1880-toggle .species-arrow');
+    const open  = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
+  document.getElementById('chk-atlas-twp').addEventListener('change', e => {
+    e.target.checked ? atlasTwpLayer.addTo(map) : map.removeLayer(atlasTwpLayer);
+  });
+  document.getElementById('chk-atlas-vil').addEventListener('change', e => {
+    e.target.checked ? atlasVilLayer.addTo(map) : map.removeLayer(atlasVilLayer);
+  });
+  document.getElementById('atlas-twp-op').addEventListener('input', e => {
+    atlasTwpLayer.setOpacity(e.target.value / 100);
+  });
+  document.getElementById('atlas-vil-op').addEventListener('input', e => {
+    atlasVilLayer.setOpacity(e.target.value / 100);
   });
 
   document.getElementById('other-counties-toggle').addEventListener('click', () => {
