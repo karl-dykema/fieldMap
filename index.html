@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.62</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.63</div>
   </div>
 
   <div class="section">
@@ -883,6 +883,27 @@
           T12N&nbsp;R13W + W&nbsp;3&nbsp;mi of T12N&nbsp;R12W, so the two abut on the same
           section line and together span R13W&nbsp;&rarr;&nbsp;R11W. Croton village inset is
           pre-Croton-Dam (1907), so the river predates the pond.
+        </div>
+      </div>
+      <div class="section-label species-toggle" id="glo-toggle" style="margin-top:4px">
+        GLO Survey Plats <span class="species-arrow closed">▾</span>
+      </div>
+      <div id="glo-body" style="display:none">
+        <label class="check-item">
+          <input type="checkbox" id="chk-glo-12n11w">
+          <span class="inat-dot" style="background:#8fa8c0"></span>
+          T12N R11W — Croton (1839)
+        </label>
+        <label class="check-item" style="padding-top:0">
+          <input type="range" id="glo-12n11w-op" min="10" max="100" value="85"
+                 style="flex:1;margin-left:20px" title="Opacity">
+        </label>
+        <div style="padding:2px 12px 9px;font-size:10px;color:#888;line-height:1.45">
+          General Land Office original survey. Township lines 1837, subdivisions
+          July&nbsp;1838, certified 22&nbsp;Feb&nbsp;1839 — 41&nbsp;years before the atlas
+          and before the pine was cut. Shows the Muskegon's original channel, marsh and
+          lakes; the right margin carries the surveyor's meander traverse in chains
+          and links.
         </div>
       </div>
       <div class="section-label species-toggle" id="ag-toggle" style="margin-top:4px">
@@ -2183,12 +2204,12 @@
   // R13W + W 3 mi of R12W. They meet on the R12W 3-mile section line
   // (-85.742840), so the pair tiles R13W -> R11W with no gap.
   //
-  // Croton (v2.61) used a 10x7 lattice whose geographic nodes were a bilinear
-  // blend of the four outer corners. Sherman/Brooks (v2.62) instead gives every
-  // node its true BLM section-corner coordinate; the idealised grid was off by
-  // a median 37 m (max 96 m), which is larger than the corner-snap residual,
-  // so it was the dominant error. Croton is worth re-warping the same way.
-  const ATLAS_TWP_BOUNDS    = [[43.380752, -85.742840], [43.468118, -85.562353]];
+  // Every node carries its true BLM section-corner coordinate rather than a
+  // bilinear blend of the four outer corners; the idealised grid was off by a
+  // median 37 m on Brooks and 28 m on Croton, larger than the corner-snap
+  // residual, so it was the dominant error rather than a refinement. Croton was
+  // re-warped this way in v2.63 (its north bound moved 43.468118 -> 43.468256).
+  const ATLAS_TWP_BOUNDS    = [[43.380752, -85.742840], [43.468256, -85.562353]];
   const ATLAS_VIL_BOUNDS    = [[43.435945, -85.670081], [43.445605, -85.656245]];
   const ATLAS_BROOKS_BOUNDS = [[43.379875, -85.920039], [43.467388, -85.741895]];
 
@@ -2198,6 +2219,15 @@
     { opacity: 0.9, attribution: '1880 Newaygo County atlas' });
   const atlasBrooksLayer = L.imageOverlay('atlas1880_brooks_twp.jpg', ATLAS_BROOKS_BOUNDS,
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
+
+  // ── GLO original survey plat (1838-39) ───────────────────
+  // Michigan DNR scan of the General Land Office plat, T12N R11W: township
+  // lines run 1837, subdivisions July 1838, certified 22 Feb 1839 -- 41 years
+  // before the atlas, and before the pine was cut. Warped by the same
+  // true-PLSS-corner method (49 nodes, 6x6 sections).
+  const GLO_12N11W_BOUNDS = [[43.380778, -85.682958], [43.468256, -85.562353]];
+  const glo12n11wLayer = L.imageOverlay('glo_12n11w.jpg', GLO_12N11W_BOUNDS,
+    { opacity: 0.85, attribution: 'GLO original survey plat, 1839 (Michigan DNR)' });
 
   document.getElementById('atlas1880-toggle').addEventListener('click', () => {
     const body  = document.getElementById('atlas1880-body');
@@ -2224,6 +2254,20 @@
   });
   document.getElementById('atlas-brooks-op').addEventListener('input', e => {
     atlasBrooksLayer.setOpacity(e.target.value / 100);
+  });
+
+  document.getElementById('glo-toggle').addEventListener('click', () => {
+    const body  = document.getElementById('glo-body');
+    const arrow = document.querySelector('#glo-toggle .species-arrow');
+    const open  = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+  document.getElementById('chk-glo-12n11w').addEventListener('change', e => {
+    e.target.checked ? glo12n11wLayer.addTo(map) : map.removeLayer(glo12n11wLayer);
+  });
+  document.getElementById('glo-12n11w-op').addEventListener('input', e => {
+    glo12n11wLayer.setOpacity(e.target.value / 100);
   });
 
   document.getElementById('other-counties-toggle').addEventListener('click', () => {
