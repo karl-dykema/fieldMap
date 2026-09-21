@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.68</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.69</div>
   </div>
 
   <div class="section">
@@ -881,6 +881,11 @@
       <label class="check-item" style="padding-top:0">
         <input type="range" id="plat2010-op" min="10" max="100" value="85"
                style="flex:1;margin-left:20px" title="Opacity">
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-glo-notes" title="Surveyor's written notes transcribed off the 1837-40 GLO plats: timber species, soil rate, terrain, springs and marshes. Placed at the centroid of the section(s) each note spans. Transcription is partial - see the layer legend for which townships are done.">
+        <span class="inat-dot" style="background:#3d7a4a"></span>
+        GLO surveyor notes (1839)
       </label>
       <label class="check-item">
         <input type="checkbox" id="chk-glo" title="General Land Office original survey plats, all 24 Newaygo townships (T11-16N, R11-14W). Croton T12N R11W: contracts let 12 Jan and 28 July 1837, surveyed 1837, certified at the Surveyor General's Office, Cincinnati, 22 Feb 1839. Total 22,351.31 acres. 41 years before the atlas and before the pine was cut. Shows the Muskegon's original channel, marsh and lakes. Sheets load as you pan.">
@@ -2194,6 +2199,42 @@
   const atlasBrooksLayer = L.imageOverlay('atlas1880_brooks_twp.webp', ATLAS_BROOKS_BOUNDS,
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
 
+  // ── GLO surveyor notes, transcribed ──────────────────────
+  // The 1837-40 plats carry the surveyor's own descriptions written along and
+  // across the section lines: timber species, soil rate, terrain, springs,
+  // marshes. No OCR handles the hand, so these are transcribed by eye from the
+  // 1074 ppi scans and placed at the centroid of the section(s) each note spans
+  // (the notes are written diagonally across several sections, so a point is an
+  // approximation of an area). The southern townships -- including Croton and
+  // Brooks -- carry almost no descriptive text; the northern tiers carry a lot.
+  let gloNotesLayer = null, gloNotesFetched = false;
+
+  async function ensureGloNotes() {
+    if (gloNotesLayer) { if (!map.hasLayer(gloNotesLayer)) gloNotesLayer.addTo(map); return; }
+    if (gloNotesFetched) return;
+    gloNotesFetched = true;
+    try {
+      const gj = await fetch('glo_notes.geojson').then(r => r.json());
+      gloNotesLayer = L.geoJSON(gj, {
+        pointToLayer: (f, ll) => L.circleMarker(ll, {
+          radius: 5, color: '#1a1c1e', weight: 1,
+          fillColor: f.properties.color, fillOpacity: 0.9
+        }),
+        onEachFeature: (f, lyr) => {
+          const p = f.properties;
+          lyr.bindPopup(
+            `<div style="font:12px/1.5 ui-monospace,Menlo,monospace">` +
+            `<div style="color:#d4a017;font-weight:600">&ldquo;${p.text}&rdquo;</div>` +
+            `<div style="color:#8b9399;margin-top:5px">${p.kind} &middot; ` +
+            `T${p.twp.split('n')[0]}N R${p.twp.split('n')[1].replace('w','')}W &middot; ` +
+            `sec ${p.sections.join(', ')}</div>` +
+            `<div style="color:#8b9399;margin-top:3px">GLO original survey, 1837&ndash;40</div></div>`);
+          lyr.bindTooltip(p.text, { direction: 'top', opacity: 0.9 });
+        }
+      }).addTo(map);
+    } catch (e) { console.error('[fieldMap] GLO notes failed', e); }
+  }
+
   // ── 2010 Rockford plat book ──────────────────────────────
   // State MI_Plats mosaic; the Newaygo raster is Newaygo_Rockford_Plat_2010.
   // Already georeferenced upstream, so unlike the atlas and GLO sheets this
@@ -2288,6 +2329,10 @@
   });
   document.getElementById('plat2010-op').addEventListener('input', e => {
     plat2010Layer.setOpacity(e.target.value / 100);
+  });
+  document.getElementById('chk-glo-notes').addEventListener('change', e => {
+    if (e.target.checked) ensureGloNotes();
+    else if (gloNotesLayer) map.removeLayer(gloNotesLayer);
   });
   document.getElementById('chk-glo').addEventListener('change', e => {
     if (e.target.checked) { gloGroup.addTo(map); gloSync(); }
