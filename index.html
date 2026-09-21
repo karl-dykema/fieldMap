@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.67</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.68</div>
   </div>
 
   <div class="section">
@@ -883,7 +883,7 @@
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <label class="check-item">
-        <input type="checkbox" id="chk-glo" title="General Land Office original survey plats, all 24 Newaygo townships (T11-16N, R11-14W). Croton T12N R11W: township lines 1837, subdivisions July 1838, certified 22 Feb 1839 - 41 years before the atlas and before the pine was cut. Shows the Muskegon's original channel, marsh and lakes. Sheets load as you pan.">
+        <input type="checkbox" id="chk-glo" title="General Land Office original survey plats, all 24 Newaygo townships (T11-16N, R11-14W). Croton T12N R11W: contracts let 12 Jan and 28 July 1837, surveyed 1837, certified at the Surveyor General's Office, Cincinnati, 22 Feb 1839. Total 22,351.31 acres. 41 years before the atlas and before the pine was cut. Shows the Muskegon's original channel, marsh and lakes. Sheets load as you pan.">
         <span class="inat-dot" style="background:#8fa8c0"></span>
         GLO survey plats (1839)
       </label>
@@ -2206,10 +2206,12 @@
   });
 
   // ── GLO original survey plat (1838-39) ───────────────────
-  // Michigan DNR scan of the General Land Office plat, T12N R11W: township
-  // lines run 1837, subdivisions July 1838, certified 22 Feb 1839 -- 41 years
-  // before the atlas, and before the pine was cut. Warped by the same
-  // true-PLSS-corner method (49 nodes, 6x6 sections).
+  // Michigan DNR scans of the General Land Office plats. For T12N R11W the
+  // certification block reads: township-line contract 12 Jan 1837, subdivision
+  // contract 28 July 1837, both surveyed 1837, map certified at the Surveyor
+  // General's Office, Cincinnati, 22 Feb 1839; total 22,351.31 acres. (An
+  // earlier version of this comment said the subdivisions ran July 1838 --
+  // that was the contract date misread as a survey date.)
   // All 24 Newaygo townships, T11-16N x R11-14W. Bounds are the axis-aligned
   // box of each township's true PLSS lattice; because the sections are slightly
   // skewed relative to north those boxes overlap neighbours by ~60-130 m, so the
