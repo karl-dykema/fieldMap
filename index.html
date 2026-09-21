@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.63</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.64</div>
   </div>
 
   <div class="section">
@@ -923,10 +923,6 @@
           <input type="checkbox" id="chk-drain-districts">
           Drain Districts
         </label>
-        <label class="check-item">
-          <input type="checkbox" id="chk-cdl">
-          Cropland Data Layer (CDL)
-        </label>
       </div>
     </div>
   </div>
@@ -949,6 +945,9 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-nlcd"> Land Cover (NLCD 2021)
+    </label>
+    <label class="check-item">
+      <input type="checkbox" id="chk-cdl"> Cropland Data Layer (CDL)
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-lidar"> LiDAR Hillshade (3DEP)
@@ -2157,12 +2156,6 @@
 
   const drainsLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [7], opacity: 0.8 });
   const drainDistrictsLayer = L.esri.dynamicMapLayer({ url: COUNTY_MS, layers: [12], opacity: 0.7 });
-  const cdlLayer = L.esri.imageMapLayer({
-    url: 'https://pdi.scinet.usda.gov/image/rest/services/CDL_WM/ImageServer',
-    opacity: 0.7,
-    attribution: 'USDA NASS Cropland Data Layer'
-  });
-
   document.getElementById('chk-ag-parcels').addEventListener('change', e => {
     e.target.checked ? agParcelsLayer.addTo(map) : map.removeLayer(agParcelsLayer);
   });
@@ -2171,9 +2164,6 @@
   });
   document.getElementById('chk-drain-districts').addEventListener('change', e => {
     e.target.checked ? drainDistrictsLayer.addTo(map) : map.removeLayer(drainDistrictsLayer);
-  });
-  document.getElementById('chk-cdl').addEventListener('change', e => {
-    e.target.checked ? cdlLayer.addTo(map) : map.removeLayer(cdlLayer);
   });
 
   document.getElementById('ag-toggle').addEventListener('click', () => {
@@ -3185,6 +3175,19 @@
   });
 
   // ── NLCD Land Cover ───────────────────────────────────────────────
+  // USDA NASS Cropland Data Layer — national coverage, not Newaygo-specific,
+  // so it lives with the other statewide/national rasters rather than under
+  // Newaygo County > Agriculture (where the other three layers are county data).
+  const cdlLayer = L.esri.imageMapLayer({
+    url: 'https://pdi.scinet.usda.gov/image/rest/services/CDL_WM/ImageServer',
+    opacity: 0.7,
+    attribution: 'USDA NASS Cropland Data Layer'
+  });
+
+  document.getElementById('chk-cdl').addEventListener('change', e => {
+    e.target.checked ? cdlLayer.addTo(map) : map.removeLayer(cdlLayer);
+  });
+
   const nlcdLayer = L.tileLayer.wms('https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms', {
     layers: 'NLCD_2021_Land_Cover_L48',
     format: 'image/png',
