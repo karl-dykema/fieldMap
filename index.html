@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.65</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.66</div>
   </div>
 
   <div class="section">
@@ -871,6 +871,15 @@
       </label>
       <label class="check-item" style="padding-top:0">
         <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
+               style="flex:1;margin-left:20px" title="Opacity">
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-plat2010" title="Rockford Map Publishers plat book for Newaygo County, 2010, from the state MI_Plats mosaic. Already georeferenced by the state - no warping done here. Landowner names, acreages and section numbers.">
+        <span class="inat-dot" style="background:#c8a050"></span>
+        Plat book (2010)
+      </label>
+      <label class="check-item" style="padding-top:0">
+        <input type="range" id="plat2010-op" min="10" max="100" value="85"
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <label class="check-item">
@@ -2185,6 +2194,17 @@
   const atlasBrooksLayer = L.imageOverlay('atlas1880_brooks_twp.jpg', ATLAS_BROOKS_BOUNDS,
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
 
+  // ── 2010 Rockford plat book ──────────────────────────────
+  // State MI_Plats mosaic; the Newaygo raster is Newaygo_Rockford_Plat_2010.
+  // Already georeferenced upstream, so unlike the atlas and GLO sheets this
+  // one needs no warping. The mosaic also carries neighbouring counties
+  // (Mecosta 1997, Montcalm 2000, Muskegon 1998), which show if you pan off.
+  const plat2010Layer = L.esri.imageMapLayer({
+    url: 'https://imagery.michigan.gov/server/rest/services/MI_Plats/ImageServer',
+    opacity: 0.85,
+    attribution: 'Rockford Map Publishers plat book, 2010 (State of Michigan MI_Plats)'
+  });
+
   // ── GLO original survey plat (1838-39) ───────────────────
   // Michigan DNR scan of the General Land Office plat, T12N R11W: township
   // lines run 1837, subdivisions July 1838, certified 22 Feb 1839 -- 41 years
@@ -2213,6 +2233,12 @@
     atlasBrooksLayer.setOpacity(e.target.value / 100);
   });
 
+  document.getElementById('chk-plat2010').addEventListener('change', e => {
+    e.target.checked ? plat2010Layer.addTo(map) : map.removeLayer(plat2010Layer);
+  });
+  document.getElementById('plat2010-op').addEventListener('input', e => {
+    plat2010Layer.setOpacity(e.target.value / 100);
+  });
   document.getElementById('chk-glo-12n11w').addEventListener('change', e => {
     e.target.checked ? glo12n11wLayer.addTo(map) : map.removeLayer(glo12n11wLayer);
   });
