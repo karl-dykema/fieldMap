@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.66</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.67</div>
   </div>
 
   <div class="section">
@@ -883,12 +883,12 @@
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <label class="check-item">
-        <input type="checkbox" id="chk-glo-12n11w" title="General Land Office original survey plat. Township lines 1837, subdivisions July 1838, certified 22 Feb 1839 - 41 years before the atlas and before the pine was cut. Shows the Muskegon's original channel, marsh and lakes.">
+        <input type="checkbox" id="chk-glo" title="General Land Office original survey plats, all 24 Newaygo townships (T11-16N, R11-14W). Croton T12N R11W: township lines 1837, subdivisions July 1838, certified 22 Feb 1839 - 41 years before the atlas and before the pine was cut. Shows the Muskegon's original channel, marsh and lakes. Sheets load as you pan.">
         <span class="inat-dot" style="background:#8fa8c0"></span>
-        GLO plat T12N R11W (1839)
+        GLO survey plats (1839)
       </label>
       <label class="check-item" style="padding-top:0">
-        <input type="range" id="glo-12n11w-op" min="10" max="100" value="85"
+        <input type="range" id="glo-op" min="10" max="100" value="85"
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <div class="section-label species-toggle" id="ag-toggle" style="margin-top:4px">
@@ -2187,11 +2187,11 @@
   const ATLAS_VIL_BOUNDS    = [[43.435945, -85.670081], [43.445605, -85.656245]];
   const ATLAS_BROOKS_BOUNDS = [[43.379875, -85.920039], [43.467388, -85.741895]];
 
-  const atlasTwpLayer = L.imageOverlay('atlas1880_croton_twp.jpg', ATLAS_TWP_BOUNDS,
+  const atlasTwpLayer = L.imageOverlay('atlas1880_croton_twp.webp', ATLAS_TWP_BOUNDS,
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
-  const atlasVilLayer = L.imageOverlay('atlas1880_croton_village.jpg', ATLAS_VIL_BOUNDS,
+  const atlasVilLayer = L.imageOverlay('atlas1880_croton_village.webp', ATLAS_VIL_BOUNDS,
     { opacity: 0.9, attribution: '1880 Newaygo County atlas' });
-  const atlasBrooksLayer = L.imageOverlay('atlas1880_brooks_twp.jpg', ATLAS_BROOKS_BOUNDS,
+  const atlasBrooksLayer = L.imageOverlay('atlas1880_brooks_twp.webp', ATLAS_BROOKS_BOUNDS,
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
 
   // ── 2010 Rockford plat book ──────────────────────────────
@@ -2210,9 +2210,57 @@
   // lines run 1837, subdivisions July 1838, certified 22 Feb 1839 -- 41 years
   // before the atlas, and before the pine was cut. Warped by the same
   // true-PLSS-corner method (49 nodes, 6x6 sections).
-  const GLO_12N11W_BOUNDS = [[43.380778, -85.682958], [43.468256, -85.562353]];
-  const glo12n11wLayer = L.imageOverlay('glo_12n11w.jpg', GLO_12N11W_BOUNDS,
-    { opacity: 0.85, attribution: 'GLO original survey plat, 1839 (Michigan DNR)' });
+  // All 24 Newaygo townships, T11-16N x R11-14W. Bounds are the axis-aligned
+  // box of each township's true PLSS lattice; because the sections are slightly
+  // skewed relative to north those boxes overlap neighbours by ~60-130 m, so the
+  // sheets MUST keep their alpha (hence WebP, not JPEG) or each one's blank
+  // margin would paint over the sheet next door.
+  const GLO_SHEETS = {
+    '11n11w': [[43.293739, -85.682466], [43.381310, -85.562574]],
+    '11n12w': [[43.292952, -85.800849], [43.380804, -85.681793]],
+    '11n13w': [[43.292952, -85.920005], [43.380169, -85.800644]],
+    '11n14w': [[43.293169, -86.039081], [43.380548, -85.919355]],
+    '12n11w': [[43.380778, -85.682958], [43.468256, -85.562353]],
+    '12n12w': [[43.380169, -85.800874], [43.468040, -85.682466]],
+    '12n13w': [[43.379875, -85.920039], [43.467036, -85.800734]],
+    '12n14w': [[43.380134, -86.039837], [43.467551, -85.919355]],
+    '13n11w': [[43.468040, -85.682958], [43.555443, -85.562292]],
+    '13n12w': [[43.466845, -85.801706], [43.555004, -85.681800]],
+    '13n13w': [[43.466737, -85.920139], [43.553814, -85.800874]],
+    '13n14w': [[43.467036, -86.039837], [43.554067, -85.919978]],
+    '14n11w': [[43.554882, -85.681800], [43.642172, -85.562224]],
+    '14n12w': [[43.553655, -85.801706], [43.641671, -85.681125]],
+    '14n13w': [[43.553697, -85.920439], [43.640533, -85.800913]],
+    '14n14w': [[43.553807, -86.039614], [43.641109, -85.920139]],
+    '15n11w': [[43.641671, -85.681379], [43.728422, -85.562247]],
+    '15n12w': [[43.640455, -85.800913], [43.728309, -85.681125]],
+    '15n13w': [[43.640428, -85.920439], [43.727627, -85.800164]],
+    '15n14w': [[43.640533, -86.039380], [43.728228, -85.919687]],
+    '16n11w': [[43.728309, -85.681711], [43.816028, -85.562387]],
+    '16n12w': [[43.727627, -85.800394], [43.815527, -85.678845]],
+    '16n13w': [[43.727044, -85.919687], [43.814671, -85.799616]],
+    '16n14w': [[43.727292, -86.039265], [43.816025, -85.918472]]
+  };
+
+  const gloGroup  = L.layerGroup();
+  const gloLoaded = {};
+  let   gloOpacity = 0.85;
+
+  // Only instantiate sheets the viewport actually touches: all 24 at once is
+  // 6.7 MB, and most sessions never leave one corner of the county.
+  function gloSync() {
+    if (!map.hasLayer(gloGroup)) return;
+    const view = map.getBounds();
+    for (const [name, b] of Object.entries(GLO_SHEETS)) {
+      if (gloLoaded[name]) continue;
+      if (!view.intersects(L.latLngBounds(b))) continue;
+      gloLoaded[name] = L.imageOverlay('glo_' + name + '.webp', b, {
+        opacity: gloOpacity,
+        attribution: 'GLO original survey plats, 1837-40 (Michigan DNR)'
+      }).addTo(gloGroup);
+    }
+  }
+  map.on('moveend', gloSync);
 
   document.getElementById('chk-atlas-twp').addEventListener('change', e => {
     e.target.checked ? atlasTwpLayer.addTo(map) : map.removeLayer(atlasTwpLayer);
@@ -2239,11 +2287,13 @@
   document.getElementById('plat2010-op').addEventListener('input', e => {
     plat2010Layer.setOpacity(e.target.value / 100);
   });
-  document.getElementById('chk-glo-12n11w').addEventListener('change', e => {
-    e.target.checked ? glo12n11wLayer.addTo(map) : map.removeLayer(glo12n11wLayer);
+  document.getElementById('chk-glo').addEventListener('change', e => {
+    if (e.target.checked) { gloGroup.addTo(map); gloSync(); }
+    else map.removeLayer(gloGroup);
   });
-  document.getElementById('glo-12n11w-op').addEventListener('input', e => {
-    glo12n11wLayer.setOpacity(e.target.value / 100);
+  document.getElementById('glo-op').addEventListener('input', e => {
+    gloOpacity = e.target.value / 100;
+    Object.values(gloLoaded).forEach(l => l.setOpacity(gloOpacity));
   });
 
   document.getElementById('other-counties-toggle').addEventListener('click', () => {
