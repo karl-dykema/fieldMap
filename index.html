@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.64</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.65</div>
   </div>
 
   <div class="section">
@@ -846,66 +846,42 @@
           <span class="pl-dot" style="background:#e8c840" title="Known Sites"></span>
         </span>
       </label>
-      <div class="section-label species-toggle" id="atlas1880-toggle" style="margin-top:4px">
-        1880 Atlas <span class="species-arrow closed">▾</span>
-      </div>
-      <div id="atlas1880-body" style="display:none">
-        <label class="check-item">
-          <input type="checkbox" id="chk-atlas-twp">
-          <span class="inat-dot" style="background:#b8a878"></span>
-          Croton Twp plat (1880)
-        </label>
-        <label class="check-item" style="padding-top:0">
-          <input type="range" id="atlas-twp-op" min="10" max="100" value="80"
-                 style="flex:1;margin-left:20px" title="Opacity">
-        </label>
-        <label class="check-item">
-          <input type="checkbox" id="chk-atlas-vil">
-          <span class="inat-dot" style="background:#9ab88a"></span>
-          Croton village (1880)
-        </label>
-        <label class="check-item" style="padding-top:0">
-          <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
-                 style="flex:1;margin-left:20px" title="Opacity">
-        </label>
-        <label class="check-item">
-          <input type="checkbox" id="chk-atlas-brooks">
-          <span class="inat-dot" style="background:#b8a878"></span>
-          Sherman/Brooks plat (1880)
-        </label>
-        <label class="check-item" style="padding-top:0">
-          <input type="range" id="atlas-brooks-op" min="10" max="100" value="80"
-                 style="flex:1;margin-left:20px" title="Opacity">
-        </label>
-        <div style="padding:2px 12px 9px;font-size:10px;color:#888;line-height:1.45">
-          Landowner plat, 1880 county atlas. Croton sheet covers E&nbsp;3&nbsp;mi of
-          T12N&nbsp;R12W + all of T12N&nbsp;R11W; Sherman/Brooks sheet covers all of
-          T12N&nbsp;R13W + W&nbsp;3&nbsp;mi of T12N&nbsp;R12W, so the two abut on the same
-          section line and together span R13W&nbsp;&rarr;&nbsp;R11W. Croton village inset is
-          pre-Croton-Dam (1907), so the river predates the pond.
-        </div>
-      </div>
-      <div class="section-label species-toggle" id="glo-toggle" style="margin-top:4px">
-        GLO Survey Plats <span class="species-arrow closed">▾</span>
-      </div>
-      <div id="glo-body" style="display:none">
-        <label class="check-item">
-          <input type="checkbox" id="chk-glo-12n11w">
-          <span class="inat-dot" style="background:#8fa8c0"></span>
-          T12N R11W — Croton (1839)
-        </label>
-        <label class="check-item" style="padding-top:0">
-          <input type="range" id="glo-12n11w-op" min="10" max="100" value="85"
-                 style="flex:1;margin-left:20px" title="Opacity">
-        </label>
-        <div style="padding:2px 12px 9px;font-size:10px;color:#888;line-height:1.45">
-          General Land Office original survey. Township lines 1837, subdivisions
-          July&nbsp;1838, certified 22&nbsp;Feb&nbsp;1839 — 41&nbsp;years before the atlas
-          and before the pine was cut. Shows the Muskegon's original channel, marsh and
-          lakes; the right margin carries the surveyor's meander traverse in chains
-          and links.
-        </div>
-      </div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-atlas-twp" title="1880 county atlas landowner plat. This sheet covers the E 3 mi of T12N R12W plus all of T12N R11W (9 x 6 mi), not two whole townships. Warped per-section onto true BLM PLSS corners.">
+        <span class="inat-dot" style="background:#b8a878"></span>
+        Croton Twp plat (1880)
+      </label>
+      <label class="check-item" style="padding-top:0">
+        <input type="range" id="atlas-twp-op" min="10" max="100" value="80"
+               style="flex:1;margin-left:20px" title="Opacity">
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-atlas-brooks" title="1880 county atlas landowner plat. Covers all of T12N R13W (Sherman) plus the W 3 mi of T12N R12W (Brooks). Abuts the Croton sheet on the same section line, so the pair spans R13W to R11W.">
+        <span class="inat-dot" style="background:#b8a878"></span>
+        Sherman/Brooks plat (1880)
+      </label>
+      <label class="check-item" style="padding-top:0">
+        <input type="range" id="atlas-brooks-op" min="10" max="100" value="80"
+               style="flex:1;margin-left:20px" title="Opacity">
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-atlas-vil" title="1880 village inset, Croton. Pre-Croton-Dam (1907), so the river drawn here predates the pond. Placed from its printed scale, 400 ft = 1 in.">
+        <span class="inat-dot" style="background:#9ab88a"></span>
+        Croton village (1880)
+      </label>
+      <label class="check-item" style="padding-top:0">
+        <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
+               style="flex:1;margin-left:20px" title="Opacity">
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-glo-12n11w" title="General Land Office original survey plat. Township lines 1837, subdivisions July 1838, certified 22 Feb 1839 - 41 years before the atlas and before the pine was cut. Shows the Muskegon's original channel, marsh and lakes.">
+        <span class="inat-dot" style="background:#8fa8c0"></span>
+        GLO plat T12N R11W (1839)
+      </label>
+      <label class="check-item" style="padding-top:0">
+        <input type="range" id="glo-12n11w-op" min="10" max="100" value="85"
+               style="flex:1;margin-left:20px" title="Opacity">
+      </label>
       <div class="section-label species-toggle" id="ag-toggle" style="margin-top:4px">
         Agriculture <span class="species-arrow closed">▾</span>
       </div>
@@ -2001,7 +1977,6 @@
     L.popup({ maxWidth: 280 }).setLatLng(latlng).setContent(html).openOn(map);
   }
 
-
   // ── LANDFIRE Fire Fuel Model (FBFM40) ─────────────────────────────
   const fbfmLayer = L.esri.imageMapLayer({
     url: 'https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2022/LF2022_FBFM40_CONUS/ImageServer',
@@ -2219,14 +2194,6 @@
   const glo12n11wLayer = L.imageOverlay('glo_12n11w.jpg', GLO_12N11W_BOUNDS,
     { opacity: 0.85, attribution: 'GLO original survey plat, 1839 (Michigan DNR)' });
 
-  document.getElementById('atlas1880-toggle').addEventListener('click', () => {
-    const body  = document.getElementById('atlas1880-body');
-    const arrow = document.querySelector('#atlas1880-toggle .species-arrow');
-    const open  = body.style.display !== 'none';
-    body.style.display = open ? 'none' : '';
-    arrow.classList.toggle('closed', open);
-  });
-
   document.getElementById('chk-atlas-twp').addEventListener('change', e => {
     e.target.checked ? atlasTwpLayer.addTo(map) : map.removeLayer(atlasTwpLayer);
   });
@@ -2246,13 +2213,6 @@
     atlasBrooksLayer.setOpacity(e.target.value / 100);
   });
 
-  document.getElementById('glo-toggle').addEventListener('click', () => {
-    const body  = document.getElementById('glo-body');
-    const arrow = document.querySelector('#glo-toggle .species-arrow');
-    const open  = body.style.display !== 'none';
-    body.style.display = open ? 'none' : '';
-    arrow.classList.toggle('closed', open);
-  });
   document.getElementById('chk-glo-12n11w').addEventListener('change', e => {
     e.target.checked ? glo12n11wLayer.addTo(map) : map.removeLayer(glo12n11wLayer);
   });
@@ -2354,7 +2314,6 @@
       usfsSpecialFetched = false;
     }
   }
-
 
   // ── USFS Forest Stands (FSVeg Common Stand Exam data) ────────────
   // Two-step fetch: stand polygons (layer 1) → related VegCharacterizations
@@ -3524,8 +3483,6 @@
     if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(hardcodedSites);
     else if (!map.hasLayer(hardcodedSites)) hardcodedSites.addTo(map);
   });
-
-
 
   // ── Browse ─────────────────────────────────────────────────────
   let browseCat = null;
