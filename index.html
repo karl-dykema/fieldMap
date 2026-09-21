@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.61</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.62</div>
   </div>
 
   <div class="section">
@@ -868,10 +868,21 @@
           <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
                  style="flex:1;margin-left:20px" title="Opacity">
         </label>
+        <label class="check-item">
+          <input type="checkbox" id="chk-atlas-brooks">
+          <span class="inat-dot" style="background:#b8a878"></span>
+          Sherman/Brooks plat (1880)
+        </label>
+        <label class="check-item" style="padding-top:0">
+          <input type="range" id="atlas-brooks-op" min="10" max="100" value="80"
+                 style="flex:1;margin-left:20px" title="Opacity">
+        </label>
         <div style="padding:2px 12px 9px;font-size:10px;color:#888;line-height:1.45">
-          Landowner plat, 1880 county atlas. Township sheet covers E&nbsp;3&nbsp;mi of
-          T12N&nbsp;R12W + all of T12N&nbsp;R11W. Village inset is pre-Croton-Dam (1907),
-          so the river predates the pond.
+          Landowner plat, 1880 county atlas. Croton sheet covers E&nbsp;3&nbsp;mi of
+          T12N&nbsp;R12W + all of T12N&nbsp;R11W; Sherman/Brooks sheet covers all of
+          T12N&nbsp;R13W + W&nbsp;3&nbsp;mi of T12N&nbsp;R12W, so the two abut on the same
+          section line and together span R13W&nbsp;&rarr;&nbsp;R11W. Croton village inset is
+          pre-Croton-Dam (1907), so the river predates the pond.
         </div>
       </div>
       <div class="section-label species-toggle" id="ag-toggle" style="margin-top:4px">
@@ -2161,18 +2172,32 @@
   });
 
   // ── 1880 county atlas overlays ───────────────────────────
-  // Georeferenced from the scanned atlas sheet. The township plat was warped
-  // per-section against BLM PLSS corners (10x7 node lattice), which also
-  // absorbs the fold between atlas pages 12 and 13. The village inset is
+  // Georeferenced from the scanned atlas sheets. Each township plat is warped
+  // piecewise-projective per section against BLM PLSS corners, which also
+  // absorbs the fold between the two atlas pages. The village inset is
   // north-up and placed from its printed scale (400 ft = 1 in at 389.6 DPI)
   // pinned to the two section-line marks it draws.
-  const ATLAS_TWP_BOUNDS = [[43.380752, -85.742840], [43.468118, -85.562353]];
-  const ATLAS_VIL_BOUNDS = [[43.435945, -85.670081], [43.445605, -85.656245]];
+  //
+  // Both sheets print two township headers but neither holds two whole
+  // townships: Croton is E 3 mi of R12W + all R11W, Sherman/Brooks is all
+  // R13W + W 3 mi of R12W. They meet on the R12W 3-mile section line
+  // (-85.742840), so the pair tiles R13W -> R11W with no gap.
+  //
+  // Croton (v2.61) used a 10x7 lattice whose geographic nodes were a bilinear
+  // blend of the four outer corners. Sherman/Brooks (v2.62) instead gives every
+  // node its true BLM section-corner coordinate; the idealised grid was off by
+  // a median 37 m (max 96 m), which is larger than the corner-snap residual,
+  // so it was the dominant error. Croton is worth re-warping the same way.
+  const ATLAS_TWP_BOUNDS    = [[43.380752, -85.742840], [43.468118, -85.562353]];
+  const ATLAS_VIL_BOUNDS    = [[43.435945, -85.670081], [43.445605, -85.656245]];
+  const ATLAS_BROOKS_BOUNDS = [[43.379875, -85.920039], [43.467388, -85.741895]];
 
   const atlasTwpLayer = L.imageOverlay('atlas1880_croton_twp.jpg', ATLAS_TWP_BOUNDS,
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
   const atlasVilLayer = L.imageOverlay('atlas1880_croton_village.jpg', ATLAS_VIL_BOUNDS,
     { opacity: 0.9, attribution: '1880 Newaygo County atlas' });
+  const atlasBrooksLayer = L.imageOverlay('atlas1880_brooks_twp.jpg', ATLAS_BROOKS_BOUNDS,
+    { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
 
   document.getElementById('atlas1880-toggle').addEventListener('click', () => {
     const body  = document.getElementById('atlas1880-body');
@@ -2193,6 +2218,12 @@
   });
   document.getElementById('atlas-vil-op').addEventListener('input', e => {
     atlasVilLayer.setOpacity(e.target.value / 100);
+  });
+  document.getElementById('chk-atlas-brooks').addEventListener('change', e => {
+    e.target.checked ? atlasBrooksLayer.addTo(map) : map.removeLayer(atlasBrooksLayer);
+  });
+  document.getElementById('atlas-brooks-op').addEventListener('input', e => {
+    atlasBrooksLayer.setOpacity(e.target.value / 100);
   });
 
   document.getElementById('other-counties-toggle').addEventListener('click', () => {
