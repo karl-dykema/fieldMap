@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.75</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.76</div>
   </div>
 
   <div class="section">
@@ -872,11 +872,6 @@
       <label class="check-item" style="padding-top:0">
         <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
                style="flex:1;margin-left:20px" title="Opacity">
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-glo-fire" title="Fire evidence from the 1837-40 GLO survey: land the surveyor recorded as burnt or as pine barrens. Predates all logging in the county, so this is pre-settlement fire history. Shown alone, without the rest of the survey notes.">
-        <span class="inat-dot" style="background:#e05a2b"></span>
-        Fire &amp; barrens (1839)
       </label>
       <label class="check-item">
         <input type="checkbox" id="chk-plat2010" title="Rockford Map Publishers plat book for Newaygo County, 2010, from the state MI_Plats mosaic. Already georeferenced by the state - no warping done here. Landowner names, acreages and section numbers.">
@@ -2221,7 +2216,7 @@
   // A band is therefore a LineString along the text, not a point: the sentence
   // describes the ground the line crosses. Point features are the short labels
   // (Marsh, Spring, Prairie) that really are tied to one spot.
-  let gloNotesLayer = null, gloFireLayer = null;
+  let gloNotesLayer = null;
   let gloNotesJson = null, gloNotesFetching = null;
 
   const gloIsFire = f => f.properties.kind === 'fire';
@@ -2239,7 +2234,7 @@
   async function gloData() {
     if (gloNotesJson) return gloNotesJson;
     if (!gloNotesFetching) {
-      gloNotesFetching = fetch('glo_notes.geojson?v=2.75').then(r => r.json())
+      gloNotesFetching = fetch('glo_notes.geojson?v=2.76').then(r => r.json())
         .then(j => (gloNotesJson = j));
     }
     return gloNotesFetching;
@@ -2247,9 +2242,8 @@
 
   // Fire history is drawn hot and heavy: a mapped 1830s burn predates all
   // logging here, so it is the hardest disturbance evidence on these sheets.
-  function gloBuild(gj, fireOnly) {
+  function gloBuild(gj) {
     return L.geoJSON(gj, {
-      filter: f => fireOnly ? gloIsFire(f) : true,
       style: f => gloIsFire(f)
         ? { color: '#ff5a1f', weight: 8, opacity: 1,
             fillColor: '#ff5a1f', fillOpacity: 0.45, dashArray: '12 7' }
@@ -2269,35 +2263,8 @@
 
   async function ensureGloNotes() {
     if (gloNotesLayer) { if (!map.hasLayer(gloNotesLayer)) gloNotesLayer.addTo(map); return; }
-    try { gloNotesLayer = gloBuild(await gloData(), false).addTo(map); }
+    try { gloNotesLayer = gloBuild(await gloData()).addTo(map); }
     catch (e) { console.error('[fieldMap] GLO notes failed', e); }
-  }
-
-  // Both fire features sit in the far north of the county, 20+ miles from
-  // Croton, so switching the layer on from a normal working view shows nothing
-  // at all. Fly to them instead of leaving the user to hunt.
-  async function ensureGloFire() {
-    if (gloFireLayer) {
-      if (!map.hasLayer(gloFireLayer)) gloFireLayer.addTo(map);
-      map.fitBounds(gloFireLayer.getBounds(), { padding: [60, 60], maxZoom: 13 });
-      return;
-    }
-    try {
-      const gj = await gloData();
-      const n = gj.features.filter(f => f.properties.kind === 'fire').length;
-      console.log(`[fieldMap] GLO fire: ${n} of ${gj.features.length} features`);
-      if (!n) { console.warn('[fieldMap] no fire features in glo_notes.geojson'); return; }
-      gloFireLayer = gloBuild(gj, true).addTo(map);
-      const b = gloFireLayer.getBounds();
-      if (b.isValid()) {
-        map.fitBounds(b, { padding: [60, 60], maxZoom: 13 });
-        // open the burn's popup so switching the layer on always does something
-        // visible, even if the map was already sitting in the right place
-        gloFireLayer.eachLayer(l => {
-          if (l.feature && l.feature.geometry.type === 'Polygon') setTimeout(() => l.openPopup(), 400);
-        });
-      } else console.warn('[fieldMap] GLO fire layer has no valid bounds');
-    } catch (e) { console.error('[fieldMap] GLO fire failed', e); }
   }
 
   // ── 2010 Rockford plat book ──────────────────────────────
@@ -2389,10 +2356,6 @@
     atlasBrooksLayer.setOpacity(e.target.value / 100);
   });
 
-  document.getElementById('chk-glo-fire').addEventListener('change', e => {
-    if (e.target.checked) ensureGloFire();
-    else if (gloFireLayer) map.removeLayer(gloFireLayer);
-  });
   document.getElementById('chk-plat2010').addEventListener('change', e => {
     e.target.checked ? plat2010Layer.addTo(map) : map.removeLayer(plat2010Layer);
   });
