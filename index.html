@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.71</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.72</div>
   </div>
 
   <div class="section">
@@ -883,7 +883,7 @@
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <label class="check-item">
-        <input type="checkbox" id="chk-glo-notes" title="Surveyor's written notes transcribed off the 1837-40 GLO plats: timber species, soil rate, terrain, springs and marshes. Placed at the centroid of the section(s) each note spans. Sentences run diagonally across the township and are drawn as lines along the writing; short labels (Marsh, Spring, Prairie) are points. Transcription in progress.">
+        <input type="checkbox" id="chk-glo-notes" title="Surveyor's written notes transcribed off the 1837-40 GLO plats: timber species, soil rate, terrain, springs and marshes. Placed at the centroid of the section(s) each note spans. Sentences run diagonally across the township and are drawn as lines along the writing; short labels (Marsh, Spring, Prairie) are points. Fire evidence - burnt land and pine barrens - is highlighted in orange. Transcription in progress.">
         <span class="inat-dot" style="background:#3d7a4a"></span>
         GLO surveyor notes (1839)
       </label>
@@ -2230,12 +2230,23 @@
         `<div style="color:#8b9399;margin-top:5px">${p.kind} &middot; ` +
         `T${p.twp.split('n')[0]}N R${p.twp.split('n')[1].replace('w','')}W` +
         (p.sections ? ` &middot; sec ${p.sections.join(', ')}` : '') + `</div>` +
+        (p.note ? `<div style="color:#8b9399;margin-top:3px">${p.note}</div>` : '') +
         `<div style="color:#8b9399;margin-top:3px">GLO original survey, 1837&ndash;40 &mdash; ` +
         `transcribed from the surveyor's hand</div></div>`;
+      // Fire history gets its own treatment: anything the surveyor described as
+      // burnt, burned over, or barrens is drawn hot and heavy, because a mapped
+      // 1830s burn predates all logging and is the hardest disturbance evidence
+      // on these sheets.
+      const isFire = f => f.properties.kind === 'fire';
       gloNotesLayer = L.geoJSON(gj, {
-        style: f => ({ color: f.properties.color, weight: 4, opacity: 0.85 }),
+        style: f => isFire(f)
+          ? { color: '#e05a2b', weight: 7, opacity: 0.95,
+              fillColor: '#e05a2b', fillOpacity: 0.28, dashArray: '10 6' }
+          : { color: f.properties.color, weight: 4, opacity: 0.85 },
         pointToLayer: (f, ll) => L.circleMarker(ll, {
-          radius: 5, color: '#1a1c1e', weight: 1,
+          radius: isFire(f) ? 8 : 5,
+          color: isFire(f) ? '#e05a2b' : '#1a1c1e',
+          weight: isFire(f) ? 2 : 1,
           fillColor: f.properties.color, fillOpacity: 0.9
         }),
         onEachFeature: (f, lyr) => {
