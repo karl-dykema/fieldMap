@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.72</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.73</div>
   </div>
 
   <div class="section">
@@ -872,6 +872,11 @@
       <label class="check-item" style="padding-top:0">
         <input type="range" id="atlas-vil-op" min="10" max="100" value="90"
                style="flex:1;margin-left:20px" title="Opacity">
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-glo-fire" title="Fire evidence from the 1837-40 GLO survey: land the surveyor recorded as burnt or as pine barrens. Predates all logging in the county, so this is pre-settlement fire history. Shown alone, without the rest of the survey notes.">
+        <span class="inat-dot" style="background:#e05a2b"></span>
+        Fire &amp; barrens (1839)
       </label>
       <label class="check-item">
         <input type="checkbox" id="chk-plat2010" title="Rockford Map Publishers plat book for Newaygo County, 2010, from the state MI_Plats mosaic. Already georeferenced by the state - no warping done here. Landowner names, acreages and section numbers.">
@@ -2216,45 +2221,62 @@
   // A band is therefore a LineString along the text, not a point: the sentence
   // describes the ground the line crosses. Point features are the short labels
   // (Marsh, Spring, Prairie) that really are tied to one spot.
-  let gloNotesLayer = null, gloNotesFetched = false;
+  let gloNotesLayer = null, gloFireLayer = null;
+  let gloNotesJson = null, gloNotesFetching = null;
+
+  const gloIsFire = f => f.properties.kind === 'fire';
+
+  const gloPopup = p =>
+    `<div style="font:12px/1.55 ui-monospace,Menlo,monospace;max-width:320px">` +
+    `<div style="color:#d4a017;font-weight:600">&ldquo;${p.text}&rdquo;</div>` +
+    `<div style="color:#8b9399;margin-top:5px">${p.kind} &middot; ` +
+    `T${p.twp.split('n')[0]}N R${p.twp.split('n')[1].replace('w','')}W` +
+    (p.sections ? ` &middot; sec ${p.sections.join(', ')}` : '') + `</div>` +
+    (p.note ? `<div style="color:#8b9399;margin-top:3px">${p.note}</div>` : '') +
+    `<div style="color:#8b9399;margin-top:3px">GLO original survey, 1837&ndash;40 &mdash; ` +
+    `transcribed from the surveyor's hand</div></div>`;
+
+  async function gloData() {
+    if (gloNotesJson) return gloNotesJson;
+    if (!gloNotesFetching) {
+      gloNotesFetching = fetch('glo_notes.geojson').then(r => r.json())
+        .then(j => (gloNotesJson = j));
+    }
+    return gloNotesFetching;
+  }
+
+  // Fire history is drawn hot and heavy: a mapped 1830s burn predates all
+  // logging here, so it is the hardest disturbance evidence on these sheets.
+  function gloBuild(gj, fireOnly) {
+    return L.geoJSON(gj, {
+      filter: f => fireOnly ? gloIsFire(f) : true,
+      style: f => gloIsFire(f)
+        ? { color: '#e05a2b', weight: 7, opacity: 0.95,
+            fillColor: '#e05a2b', fillOpacity: 0.28, dashArray: '10 6' }
+        : { color: f.properties.color, weight: 4, opacity: 0.85 },
+      pointToLayer: (f, ll) => L.circleMarker(ll, {
+        radius: gloIsFire(f) ? 8 : 5,
+        color: gloIsFire(f) ? '#e05a2b' : '#1a1c1e',
+        weight: gloIsFire(f) ? 2 : 1,
+        fillColor: f.properties.color, fillOpacity: 0.9
+      }),
+      onEachFeature: (f, lyr) => {
+        lyr.bindPopup(gloPopup(f.properties));
+        lyr.bindTooltip(f.properties.text, { direction: 'top', opacity: 0.9, sticky: true });
+      }
+    });
+  }
 
   async function ensureGloNotes() {
     if (gloNotesLayer) { if (!map.hasLayer(gloNotesLayer)) gloNotesLayer.addTo(map); return; }
-    if (gloNotesFetched) return;
-    gloNotesFetched = true;
-    try {
-      const gj = await fetch('glo_notes.geojson').then(r => r.json());
-      const popup = p =>
-        `<div style="font:12px/1.55 ui-monospace,Menlo,monospace;max-width:320px">` +
-        `<div style="color:#d4a017;font-weight:600">&ldquo;${p.text}&rdquo;</div>` +
-        `<div style="color:#8b9399;margin-top:5px">${p.kind} &middot; ` +
-        `T${p.twp.split('n')[0]}N R${p.twp.split('n')[1].replace('w','')}W` +
-        (p.sections ? ` &middot; sec ${p.sections.join(', ')}` : '') + `</div>` +
-        (p.note ? `<div style="color:#8b9399;margin-top:3px">${p.note}</div>` : '') +
-        `<div style="color:#8b9399;margin-top:3px">GLO original survey, 1837&ndash;40 &mdash; ` +
-        `transcribed from the surveyor's hand</div></div>`;
-      // Fire history gets its own treatment: anything the surveyor described as
-      // burnt, burned over, or barrens is drawn hot and heavy, because a mapped
-      // 1830s burn predates all logging and is the hardest disturbance evidence
-      // on these sheets.
-      const isFire = f => f.properties.kind === 'fire';
-      gloNotesLayer = L.geoJSON(gj, {
-        style: f => isFire(f)
-          ? { color: '#e05a2b', weight: 7, opacity: 0.95,
-              fillColor: '#e05a2b', fillOpacity: 0.28, dashArray: '10 6' }
-          : { color: f.properties.color, weight: 4, opacity: 0.85 },
-        pointToLayer: (f, ll) => L.circleMarker(ll, {
-          radius: isFire(f) ? 8 : 5,
-          color: isFire(f) ? '#e05a2b' : '#1a1c1e',
-          weight: isFire(f) ? 2 : 1,
-          fillColor: f.properties.color, fillOpacity: 0.9
-        }),
-        onEachFeature: (f, lyr) => {
-          lyr.bindPopup(popup(f.properties));
-          lyr.bindTooltip(f.properties.text, { direction: 'top', opacity: 0.9, sticky: true });
-        }
-      }).addTo(map);
-    } catch (e) { console.error('[fieldMap] GLO notes failed', e); }
+    try { gloNotesLayer = gloBuild(await gloData(), false).addTo(map); }
+    catch (e) { console.error('[fieldMap] GLO notes failed', e); }
+  }
+
+  async function ensureGloFire() {
+    if (gloFireLayer) { if (!map.hasLayer(gloFireLayer)) gloFireLayer.addTo(map); return; }
+    try { gloFireLayer = gloBuild(await gloData(), true).addTo(map); }
+    catch (e) { console.error('[fieldMap] GLO fire failed', e); }
   }
 
   // ── 2010 Rockford plat book ──────────────────────────────
@@ -2346,6 +2368,10 @@
     atlasBrooksLayer.setOpacity(e.target.value / 100);
   });
 
+  document.getElementById('chk-glo-fire').addEventListener('change', e => {
+    if (e.target.checked) ensureGloFire();
+    else if (gloFireLayer) map.removeLayer(gloFireLayer);
+  });
   document.getElementById('chk-plat2010').addEventListener('change', e => {
     e.target.checked ? plat2010Layer.addTo(map) : map.removeLayer(plat2010Layer);
   });
