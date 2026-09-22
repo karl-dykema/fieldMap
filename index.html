@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.74</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.75</div>
   </div>
 
   <div class="section">
@@ -2239,7 +2239,7 @@
   async function gloData() {
     if (gloNotesJson) return gloNotesJson;
     if (!gloNotesFetching) {
-      gloNotesFetching = fetch('glo_notes.geojson').then(r => r.json())
+      gloNotesFetching = fetch('glo_notes.geojson?v=2.75').then(r => r.json())
         .then(j => (gloNotesJson = j));
     }
     return gloNotesFetching;
@@ -2283,10 +2283,20 @@
       return;
     }
     try {
-      gloFireLayer = gloBuild(await gloData(), true).addTo(map);
+      const gj = await gloData();
+      const n = gj.features.filter(f => f.properties.kind === 'fire').length;
+      console.log(`[fieldMap] GLO fire: ${n} of ${gj.features.length} features`);
+      if (!n) { console.warn('[fieldMap] no fire features in glo_notes.geojson'); return; }
+      gloFireLayer = gloBuild(gj, true).addTo(map);
       const b = gloFireLayer.getBounds();
-      if (b.isValid()) map.fitBounds(b, { padding: [60, 60], maxZoom: 13 });
-      else console.warn('[fieldMap] GLO fire layer has no valid bounds');
+      if (b.isValid()) {
+        map.fitBounds(b, { padding: [60, 60], maxZoom: 13 });
+        // open the burn's popup so switching the layer on always does something
+        // visible, even if the map was already sitting in the right place
+        gloFireLayer.eachLayer(l => {
+          if (l.feature && l.feature.geometry.type === 'Polygon') setTimeout(() => l.openPopup(), 400);
+        });
+      } else console.warn('[fieldMap] GLO fire layer has no valid bounds');
     } catch (e) { console.error('[fieldMap] GLO fire failed', e); }
   }
 
