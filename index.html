@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.70</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.71</div>
   </div>
 
   <div class="section">
@@ -865,7 +865,7 @@
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <label class="check-item">
-        <input type="checkbox" id="chk-atlas-vil" title="1880 village inset, Croton. Pre-Croton-Dam (1907), so the river drawn here predates the pond. Placed from its printed scale, 400 ft = 1 in.">
+        <input type="checkbox" id="chk-atlas-vil" title="1880 village inset, Croton. Pre-Croton-Dam (1907), so the river drawn here predates the pond. Fitted to the surviving street grid (Bluff, Division, Wealthy, Pine), not the printed scale.">
         <span class="inat-dot" style="background:#9ab88a"></span>
         Croton village (1880)
       </label>
@@ -2189,7 +2189,14 @@
   // residual, so it was the dominant error rather than a refinement. Croton was
   // re-warped this way in v2.63 (its north bound moved 43.468118 -> 43.468256).
   const ATLAS_TWP_BOUNDS    = [[43.380752, -85.742840], [43.468256, -85.562353]];
-  const ATLAS_VIL_BOUNDS    = [[43.435945, -85.670081], [43.445605, -85.656245]];
+  // Croton village inset re-fitted to surviving streets rather than the printed
+  // scale. Bluff, Division, Wealthy and Pine are all still on the ground, so the
+  // three Pine intersections give the vertical scale (residuals +-0.4 m) and an
+  // isotropic scale carries the longitude. Two independent checks: the resulting
+  // bounds reproduce the image aspect to 0.01% (1.0400 vs 1.0399), and the plat's
+  // own "SECT LINE 8/17" down Division falls 1.9 m from the true PLSS line.
+  // The old scale-derived placement was about 6.6% too large (S edge 57 m out).
+  const ATLAS_VIL_BOUNDS    = [[43.436460, -85.669650], [43.445586, -85.656667]];
   const ATLAS_BROOKS_BOUNDS = [[43.379875, -85.920039], [43.467388, -85.741895]];
 
   const atlasTwpLayer = L.imageOverlay('atlas1880_croton_twp.webp', ATLAS_TWP_BOUNDS,
