@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.69</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.70</div>
   </div>
 
   <div class="section">
@@ -883,7 +883,7 @@
                style="flex:1;margin-left:20px" title="Opacity">
       </label>
       <label class="check-item">
-        <input type="checkbox" id="chk-glo-notes" title="Surveyor's written notes transcribed off the 1837-40 GLO plats: timber species, soil rate, terrain, springs and marshes. Placed at the centroid of the section(s) each note spans. Transcription is partial - see the layer legend for which townships are done.">
+        <input type="checkbox" id="chk-glo-notes" title="Surveyor's written notes transcribed off the 1837-40 GLO plats: timber species, soil rate, terrain, springs and marshes. Placed at the centroid of the section(s) each note spans. Sentences run diagonally across the township and are drawn as lines along the writing; short labels (Marsh, Spring, Prairie) are points. Transcription in progress.">
         <span class="inat-dot" style="background:#3d7a4a"></span>
         GLO surveyor notes (1839)
       </label>
@@ -2200,13 +2200,15 @@
     { opacity: 0.8, attribution: '1880 Newaygo County atlas' });
 
   // ── GLO surveyor notes, transcribed ──────────────────────
-  // The 1837-40 plats carry the surveyor's own descriptions written along and
-  // across the section lines: timber species, soil rate, terrain, springs,
-  // marshes. No OCR handles the hand, so these are transcribed by eye from the
-  // 1074 ppi scans and placed at the centroid of the section(s) each note spans
-  // (the notes are written diagonally across several sections, so a point is an
-  // approximation of an area). The southern townships -- including Croton and
-  // Brooks -- carry almost no descriptive text; the northern tiers carry a lot.
+  // The surveyors wrote their descriptions as whole sentences running along a
+  // 45-degree diagonal across the township, not as isolated words. A first pass
+  // tiled the sheets on the axes, which cut every sentence mid-phrase and turned
+  // one note into four fragments. These are now read by rotating the sheet to
+  // the writing angle (-45 on 9 of the 10 annotated sheets, +45 on 16n14w),
+  // cutting horizontal strips along each band, and reading the line end to end.
+  // A band is therefore a LineString along the text, not a point: the sentence
+  // describes the ground the line crosses. Point features are the short labels
+  // (Marsh, Spring, Prairie) that really are tied to one spot.
   let gloNotesLayer = null, gloNotesFetched = false;
 
   async function ensureGloNotes() {
@@ -2215,21 +2217,23 @@
     gloNotesFetched = true;
     try {
       const gj = await fetch('glo_notes.geojson').then(r => r.json());
+      const popup = p =>
+        `<div style="font:12px/1.55 ui-monospace,Menlo,monospace;max-width:320px">` +
+        `<div style="color:#d4a017;font-weight:600">&ldquo;${p.text}&rdquo;</div>` +
+        `<div style="color:#8b9399;margin-top:5px">${p.kind} &middot; ` +
+        `T${p.twp.split('n')[0]}N R${p.twp.split('n')[1].replace('w','')}W` +
+        (p.sections ? ` &middot; sec ${p.sections.join(', ')}` : '') + `</div>` +
+        `<div style="color:#8b9399;margin-top:3px">GLO original survey, 1837&ndash;40 &mdash; ` +
+        `transcribed from the surveyor's hand</div></div>`;
       gloNotesLayer = L.geoJSON(gj, {
+        style: f => ({ color: f.properties.color, weight: 4, opacity: 0.85 }),
         pointToLayer: (f, ll) => L.circleMarker(ll, {
           radius: 5, color: '#1a1c1e', weight: 1,
           fillColor: f.properties.color, fillOpacity: 0.9
         }),
         onEachFeature: (f, lyr) => {
-          const p = f.properties;
-          lyr.bindPopup(
-            `<div style="font:12px/1.5 ui-monospace,Menlo,monospace">` +
-            `<div style="color:#d4a017;font-weight:600">&ldquo;${p.text}&rdquo;</div>` +
-            `<div style="color:#8b9399;margin-top:5px">${p.kind} &middot; ` +
-            `T${p.twp.split('n')[0]}N R${p.twp.split('n')[1].replace('w','')}W &middot; ` +
-            `sec ${p.sections.join(', ')}</div>` +
-            `<div style="color:#8b9399;margin-top:3px">GLO original survey, 1837&ndash;40</div></div>`);
-          lyr.bindTooltip(p.text, { direction: 'top', opacity: 0.9 });
+          lyr.bindPopup(popup(f.properties));
+          lyr.bindTooltip(f.properties.text, { direction: 'top', opacity: 0.9, sticky: true });
         }
       }).addTo(map);
     } catch (e) { console.error('[fieldMap] GLO notes failed', e); }
