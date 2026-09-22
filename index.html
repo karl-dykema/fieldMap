@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.73</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.74</div>
   </div>
 
   <div class="section">
@@ -2251,8 +2251,8 @@
     return L.geoJSON(gj, {
       filter: f => fireOnly ? gloIsFire(f) : true,
       style: f => gloIsFire(f)
-        ? { color: '#e05a2b', weight: 7, opacity: 0.95,
-            fillColor: '#e05a2b', fillOpacity: 0.28, dashArray: '10 6' }
+        ? { color: '#ff5a1f', weight: 8, opacity: 1,
+            fillColor: '#ff5a1f', fillOpacity: 0.45, dashArray: '12 7' }
         : { color: f.properties.color, weight: 4, opacity: 0.85 },
       pointToLayer: (f, ll) => L.circleMarker(ll, {
         radius: gloIsFire(f) ? 8 : 5,
@@ -2273,10 +2273,21 @@
     catch (e) { console.error('[fieldMap] GLO notes failed', e); }
   }
 
+  // Both fire features sit in the far north of the county, 20+ miles from
+  // Croton, so switching the layer on from a normal working view shows nothing
+  // at all. Fly to them instead of leaving the user to hunt.
   async function ensureGloFire() {
-    if (gloFireLayer) { if (!map.hasLayer(gloFireLayer)) gloFireLayer.addTo(map); return; }
-    try { gloFireLayer = gloBuild(await gloData(), true).addTo(map); }
-    catch (e) { console.error('[fieldMap] GLO fire failed', e); }
+    if (gloFireLayer) {
+      if (!map.hasLayer(gloFireLayer)) gloFireLayer.addTo(map);
+      map.fitBounds(gloFireLayer.getBounds(), { padding: [60, 60], maxZoom: 13 });
+      return;
+    }
+    try {
+      gloFireLayer = gloBuild(await gloData(), true).addTo(map);
+      const b = gloFireLayer.getBounds();
+      if (b.isValid()) map.fitBounds(b, { padding: [60, 60], maxZoom: 13 });
+      else console.warn('[fieldMap] GLO fire layer has no valid bounds');
+    } catch (e) { console.error('[fieldMap] GLO fire failed', e); }
   }
 
   // ── 2010 Rockford plat book ──────────────────────────────
