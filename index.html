@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.77</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.78</div>
   </div>
 
   <div class="section">
@@ -820,6 +820,17 @@
       </div>
       <label class="check-item">
         <input type="checkbox" id="chk-roads"> Roads
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-trails">
+        Trails
+        <span class="pl-legend">
+          <span class="pl-dot" style="background:#1f4fa8" title="North Country Trail"></span>
+          <span class="pl-dot" style="background:#8b5a2b" title="Foot / horse trails"></span>
+          <span class="pl-dot" style="background:#2e8b57" title="Bike paths / MTB"></span>
+          <span class="pl-dot" style="background:#a03070" title="ORV / motorcycle"></span>
+          <span class="pl-dot" style="background:#4a9fd0" title="Snowmobile"></span>
+        </span>
       </label>
       <label class="check-item">
         <input type="checkbox" id="chk-contours"> Contours (5ft + Lake Depth)
@@ -2073,6 +2084,118 @@
     e.target.checked ? roadsLayer.addTo(map) : map.removeLayer(roadsLayer);
   });
 
+  // ── Trails ───────────────────────────────────────────────────────
+  // Three sources, each used for what it does best:
+  //  · County Recreation group (20 trailheads, 21 trails): NCT, Coolbaugh, Loda Lake,
+  //    Hungerford horse loops, Ensley, Hardy Dam. County NCT checked against USFS EDW
+  //    TrailNFS near the 48th St / Coolbaugh burn units (2026-10-02): median 5 m apart,
+  //    max 64 m. DNR's NCT copy has a 567 m outlier there, so the county's is used.
+  //  · DNR Trails open data (12 ORV, 13 motorcycle, 15 snowmobile): far fuller than the
+  //    county's own OHV/snowmobile layers (79 vs 5 snowmobile segments).
+  //  · OSM cycleways / MTB trails, committed as bike-paths.geojson (2026-10-02):
+  //    Town & Country Path, Hungerford MTB, Brower Loop, Dragon. There are no signed
+  //    on-road bike routes in the county (USBR 20 goes Reed City-Baldwin, USBR 35 the shore).
+  const DNR_TRAILS_FS = 'https://gisagodnr.state.mi.us/arcgis/rest/services/DNR/DNRTrailsOPENDATA/FeatureServer';
+  const TRAIL_BBOX    = '-86.05,43.29,-85.55,43.83';
+  let trailsLayer   = null;
+  let trailsFetched = false;
+
+  const TRAIL_STYLES = {
+    nct:     { color: '#1f4fa8', weight: 4,   opacity: 0.95 },
+    nctRoad: { color: '#1f4fa8', weight: 3,   opacity: 0.95, dashArray: '6,5' },
+    foot:    { color: '#8b5a2b', weight: 2.5, opacity: 0.9,  dashArray: '5,4' },
+    bike:    { color: '#2e8b57', weight: 3,   opacity: 0.9 },
+    mtb:     { color: '#2e8b57', weight: 2.5, opacity: 0.9,  dashArray: '4,3' },
+    orv:     { color: '#a03070', weight: 2.5, opacity: 0.9,  dashArray: '8,4' },
+    snow:    { color: '#4a9fd0', weight: 2.5, opacity: 0.9,  dashArray: '2,6' },
+  };
+
+  function countyTrailStyle(p) {
+    const name = p.Name || '', type = p.Trail_type || '', desc = p.Trail_Desc || '';
+    if (name === 'North Country Trail') return type === 'Public Road' ? TRAIL_STYLES.nctRoad : TRAIL_STYLES.nct;
+    if (/Bike Trail/.test(desc)) return TRAIL_STYLES.bike;
+    return TRAIL_STYLES.foot;
+  }
+
+  const popupLines = (title, lines) =>
+    `<b>${title}</b>` + lines.filter(Boolean).map(t => `<br><span style="font-size:11px">${t}</span>`).join('');
+  const miles = m => m ? `${(+m).toFixed(2)} mi segment` : '';
+  const dnrVal = v => (v && v !== '-1') ? v : '';
+
+  function countyTrailPopup(p) {
+    return popupLines(p.Name || p.Trail_Name || 'Trail', [
+      [p.Trail_type, p.Trail_Desc].filter(Boolean).join(' · '),
+      miles(p.Trail_Distance),
+      p.Trailhead && `Trailhead: ${p.Trailhead}`,
+      p.Location, p.Parking && `Parking: ${p.Parking}`,
+    ]);
+  }
+
+  function dnrTrailPopup(p, kind) {
+    const status = kind === 'snow' ? p.OpenClosedStatusSnowmobile : p.OpenClosedStatusORV;
+    return popupLines(dnrVal(p.TrailNamePrimary) || 'DNR trail', [
+      { orv: 'DNR ORV trail', moto: 'DNR motorcycle trail (MCCCT)', snow: 'DNR groomed snowmobile trail' }[kind],
+      dnrVal(status) && `Status: ${status}`,
+      [dnrVal(p.SurfaceType), p.TrailOnRoad === 'Yes' ? 'on road' : ''].filter(Boolean).join(' · '),
+      miles(p.SegmentLengthMiles),
+    ]);
+  }
+
+  async function ensureTrailsLayer() {
+    if (trailsLayer) { if (!map.hasLayer(trailsLayer)) trailsLayer.addTo(map); return; }
+    if (trailsFetched) return;
+    trailsFetched = true;
+    try {
+      const county = id => fetch(`${COUNTY_MS}/${id}/query?where=1%3D1&outFields=*&outSR=4326&returnGeometry=true&f=geojson`).then(r => r.json());
+      const dnr    = id => fetch(`${DNR_TRAILS_FS}/${id}/query?where=1%3D1&geometry=${TRAIL_BBOX}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&returnGeometry=true&f=geojson`).then(r => r.json());
+      const [heads, trails, orv, moto, snow, bike] = await Promise.all([
+        county(20), county(21), dnr(12), dnr(13), dnr(15),
+        fetch('bike-paths.geojson').then(r => r.json()),
+      ]);
+
+      const lineLayer = (gj, style, popup, label) => L.geoJSON(gj, {
+        style: f => style(f.properties),
+        onEachFeature(f, layer) {
+          layer.bindTooltip(label(f.properties), { sticky: true, opacity: 0.9 });
+          layer.bindPopup(popup(f.properties));
+        }
+      });
+      const dnrLayer = (gj, kind) => lineLayer(gj, () => TRAIL_STYLES[kind === 'moto' ? 'orv' : kind],
+        p => dnrTrailPopup(p, kind), p => dnrVal(p.TrailNamePrimary) || 'DNR trail');
+
+      // Town & Country Path comes from OSM instead (finer, and tagged paved)
+      trails.features = trails.features.filter(f => f.properties.Name !== 'Town & Country Path');
+      const isNct = f => f.properties.Name === 'North Country Trail';
+      trails.features.sort((a, b) => isNct(a) - isNct(b));
+
+      const bikeLayer = lineLayer(bike,
+        p => (p.surface === 'paved' || p.surface === 'asphalt') ? TRAIL_STYLES.bike : TRAIL_STYLES.mtb,
+        p => popupLines(p.name || 'Bike path', [p.highway === 'cycleway' ? 'Bike path' : 'Trail', p.surface, 'OpenStreetMap']),
+        p => p.name || 'Bike path');
+
+      const trailheads = L.geoJSON(heads, {
+        pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 5, color: '#fff', weight: 1.5, fillColor: '#333', fillOpacity: 0.9 }),
+        onEachFeature(f, layer) { layer.bindPopup(countyTrailPopup(f.properties)); }
+      });
+
+      // Motorized underneath; NCT (sorted last in county trails) draws on top of foot trails
+      trailsLayer = L.layerGroup([
+        dnrLayer(snow, 'snow'), dnrLayer(orv, 'orv'), dnrLayer(moto, 'moto'),
+        bikeLayer,
+        lineLayer(trails, countyTrailStyle, countyTrailPopup, p => p.Name || 'Trail'),
+        trailheads,
+      ]);
+      if (document.getElementById('chk-trails').checked) trailsLayer.addTo(map);
+    } catch (err) {
+      console.warn('Trails load failed:', err);
+      trailsFetched = false;
+    }
+  }
+
+  document.getElementById('chk-trails').addEventListener('change', e => {
+    e.target.checked ? ensureTrailsLayer() : (trailsLayer && map.removeLayer(trailsLayer));
+  });
+
   document.getElementById('chk-contours').addEventListener('change', e => {
     e.target.checked ? contoursLayer.addTo(map) : map.removeLayer(contoursLayer);
   });
@@ -2234,7 +2357,7 @@
   async function gloData() {
     if (gloNotesJson) return gloNotesJson;
     if (!gloNotesFetching) {
-      gloNotesFetching = fetch('glo_notes.geojson?v=2.77').then(r => r.json())
+      gloNotesFetching = fetch('glo_notes.geojson?v=2.78').then(r => r.json())
         .then(j => (gloNotesJson = j));
     }
     return gloNotesFetching;

@@ -162,6 +162,7 @@ Center: `43.5081, -85.7967` (Newaygo County, MI) · Zoom: 13
 | Soils | Newaygo County GIS | `…/PublicCountyViewerProV3/MapServer` layer 32 |
 | Contours (5 ft) | Newaygo County GIS | `…/PublicCountyViewerProV3/MapServer` layer 16 |
 | Roads | Newaygo County GIS | `…/PublicCountyViewerProV3/MapServer` layer 5 |
+| Trails | County GIS (NCT, local trails, trailheads) + MI DNR Trails (ORV, motorcycle, snowmobile) + OSM bike paths | `…/PublicCountyViewerProV3/MapServer` layers 20, 21; `gisagodnr.state.mi.us/…/DNRTrailsOPENDATA/FeatureServer` 12, 13, 15; `bike-paths.geojson` |
 | DNR LOTS parcels | Michigan DNR (ArcGIS Online) | `https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0` |
 | Pre-settlement vegetation | Michigan Natural Features Inventory (MNFI) | `https://services1.arcgis.com/4ezfu5dIwH83BUNL/ArcGIS/rest/services/Michigan_Land_Cover_Circa_1800/FeatureServer/0` |
 | Land cover (NLCD 2021) | USGS MRLC | `https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms` |
