@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.76</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.77</div>
   </div>
 
   <div class="section">
@@ -1223,7 +1223,7 @@
         <span class="inat-dot" style="background:#e85a00"></span>
         Show Burn Units
       </label>
-      <div style="font-size:10px;color:#888;margin-top:4px;padding-left:4px;">Huron-Manistee NF · Baldwin/White Cloud RD · Center points only (no polygon data available)</div>
+      <div style="font-size:10px;color:#888;margin-top:4px;padding-left:4px;">Huron-Manistee NF · Baldwin/White Cloud RD · Orange = not yet burned, grey = burned · Center points only (no polygon data available)</div>
     </div>
   </div>
 
@@ -2234,7 +2234,7 @@
   async function gloData() {
     if (gloNotesJson) return gloNotesJson;
     if (!gloNotesFetching) {
-      gloNotesFetching = fetch('glo_notes.geojson?v=2.76').then(r => r.json())
+      gloNotesFetching = fetch('glo_notes.geojson?v=2.77').then(r => r.json())
         .then(j => (gloNotesJson = j));
     }
     return gloNotesFetching;
@@ -3736,29 +3736,45 @@
   });
 
   // ── 2026 USFS Prescribed Burns ────────────────────────────────────
+  // Status per InciWeb, page updated 2026-09-29. `done` = burned this season;
+  // everything else is still planned and can roll into a fall window.
   const rxFireUnits = [
     { name: 'Bigelow Block 4',        lat: 43.38242, lng: -85.72785, acres: 58,  township: 'Brooks Township',  desc: 'North of 96th Street, between Spruce and Poplar Roads' },
     { name: 'Coolbaugh Rx 8',         lat: 43.46060, lng: -85.74200, acres: 130, township: 'Brooks Township',  desc: 'North of E 58th Street, east of Bigelow Creek along the North Country Trail' },
-    { name: 'Poplar Road',            lat: 43.46350, lng: -85.72020, acres: 37,  township: 'Brooks Township',  desc: 'South of E. 48th Street, between S. Poplar Ave and S. Laurel Drive' },
+    { name: 'Poplar Road',            lat: 43.46350, lng: -85.72020, acres: 37,  township: 'Brooks Township',  desc: 'South of E. 48th Street, between S. Poplar Ave and S. Laurel Drive', done: 'May 30, 2026' },
     { name: 'Bigelow Block 1',        lat: 43.39591, lng: -85.68003, acres: 35,  township: 'Croton Township',  desc: 'East of the intersection of South Pine Ave. and E 88th Street' },
     { name: '48th St. Complex Unit 1',lat: 43.46987, lng: -85.71229, acres: 54,  township: 'Everett Township', desc: 'North of E. 48th Street and east of Laurel Drive' },
     { name: '48th St. Complex Unit 2',lat: 43.46607, lng: -85.71206, acres: 42,  township: 'Everett Township', desc: 'South of E. 48th Street and east of FR9222' },
     { name: 'Boreman 14 Mile',        lat: 43.75310, lng: -85.88918, acres: 72,  township: 'Lilley Township',  desc: 'South of W. 14 Mile Road (FR8963) near the intersection with Badger Drive' },
     { name: 'Brohman Unit 1',         lat: 43.67103, lng: -85.81193, acres: 17,  township: 'Merrill Township', desc: 'West of M-37 to the railroad tracks, between 8 Mile Road and W. Pierce Drive' },
     { name: 'Brohman Unit 2',         lat: 43.66756, lng: -85.81248, acres: 27,  township: 'Merrill Township', desc: 'West of M-37 to the railroad tracks, south of 8 Mile Road' },
+    // Neighbouring counties, same ranger district
+    { name: 'Chase Block 5',          lat: 43.82577, lng: -85.69150, acres: 289, township: 'Yates Twp, Lake Co.',      desc: 'South of 88th Street and east of S. Queens Hwy' },
+    { name: 'Chase Block 8',          lat: 43.83295, lng: -85.74388, acres: 57,  township: 'Yates Twp, Lake Co.',      desc: 'North of 88th Street and west of Spruce Road' },
+    { name: 'Chase Block 9',          lat: 43.82117, lng: -85.75068, acres: 482, township: 'Yates Twp, Lake Co.',      desc: 'South of 88th Street, between Spruce and Eastman Roads, north of E. 18 Mile Road' },
+    { name: 'Sears Tract Chase Rd.',  lat: 43.89545, lng: -85.66897, acres: 84,  township: 'Chase Twp, Lake Co.',      desc: 'North of Hwy 10 NW, between State and S. Frank Smith Roads along the Pere Marquette State Trail' },
+    { name: 'SE Peacock Block 3',     lat: 44.01820, lng: -85.85930, acres: 57,  township: 'Peacock Twp, Lake Co.',    desc: 'Northwest of Wolf Lake; north of Wolf Lake Drive and east of Powerline Road' },
+    { name: 'Peacock Block 4',        lat: 44.04289, lng: -85.86171, acres: 13,  township: 'Peacock Twp, Lake Co.',    desc: 'South of 4 Mile and east of N. Astor Roads' },
+    { name: 'SE Peacock Block 5',     lat: 44.04303, lng: -85.85658, acres: 15,  township: 'Peacock Twp, Lake Co.',    desc: 'South of 4 Mile and east of N. Astor Roads' },
+    { name: 'SER 437 North',          lat: 43.51520, lng: -86.14278, acres: 186, township: 'Greenwood Twp, Oceana Co.', desc: 'North of Winston Road between 160th and 168th Avenues' },
+    { name: 'SER 437 South',          lat: 43.50708, lng: -86.14711, acres: 83,  township: 'Greenwood Twp, Oceana Co.', desc: 'North of Winston Road between 160th and 168th Avenues' },
+    { name: 'SER 439 South',          lat: 43.49830, lng: -86.15274, acres: 481, township: 'Greenwood Twp, Oceana Co.', desc: 'South of E. Winston Road and east of 160th Ave' },
+    { name: 'SER 458 North',          lat: 43.53788, lng: -86.12097, acres: 266, township: 'Greenwood Twp, Oceana Co.', desc: 'South of E. Arthur Road and east of 168th Ave' },
+    { name: 'SER 438',                lat: 43.49922, lng: -86.16642, acres: 804, township: 'Otto Twp, Oceana Co.',      desc: 'South of E. Winston Road and west of 160th Ave, between the north and south branches of the White River' },
+    { name: 'Sippy Rd. Unit 1',       lat: 43.84016, lng: -86.18848, acres: 48,  township: 'Eden Twp, Mason Co.',       desc: 'East of S. Stickney and Sippy Roads, east of the North Branch of the Pentwater River, north of Whiskey Creek' },
+    { name: 'Sippy Rd. Unit 2',       lat: 43.84541, lng: -86.19488, acres: 26,  township: 'Eden Twp, Mason Co.',       desc: 'East of S. Stickney and Sippy Roads, north of Whiskey Creek, east of the North Branch of the Pentwater River' },
   ];
 
   const rxFireLayer = L.layerGroup(rxFireUnits.map(u => {
-    const marker = L.circleMarker([u.lat, u.lng], {
-      radius: 10, color: '#b83500', weight: 2,
-      fillColor: '#e85a00', fillOpacity: 0.85
-    });
+    const marker = L.circleMarker([u.lat, u.lng], u.done
+      ? { radius: 7,  color: '#777',    weight: 1.5, fillColor: '#aaa',    fillOpacity: 0.6 }
+      : { radius: 10, color: '#b83500', weight: 2,   fillColor: '#e85a00', fillOpacity: 0.85 });
     marker.bindPopup(
-      `<b>🔥 ${u.name}</b><br>` +
+      `<b>${u.done ? '' : '🔥 '}${u.name}</b><br>` +
       `<span style="color:#888">${u.township}</span><br>` +
-      `${u.acres} acres<br>` +
+      `${u.acres} acres · ${u.done ? `<b>Burned ${u.done}</b>` : '<b style="color:#b83500">Not yet burned</b>'}<br>` +
       `<span style="font-size:11px">${u.desc}</span><br>` +
-      `<span style="font-size:10px;color:#aaa">Huron-Manistee NF · 2026 Rx Fire Season</span>`
+      `<span style="font-size:10px;color:#aaa">Huron-Manistee NF · status per InciWeb, Sep 29 2026</span>`
     );
     return marker;
   }));
