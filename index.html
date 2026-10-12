@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.80</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.81</div>
   </div>
 
   <div class="section">
@@ -942,7 +942,7 @@
   <div class="section">
     <div class="section-label">Statewide</div>
     <label class="check-item">
-      <input type="checkbox" id="chk-public-lands">
+      <input type="checkbox" id="chk-statewide-lands">
       Public Lands
       <span class="pl-legend">
         <span class="pl-dot" style="background:#2d6a4f" title="US Forest Service"></span>
@@ -3121,6 +3121,16 @@
             } } },
           }],
         });
+        // Server-drawn image, so no hover: identify on click instead.
+        usfsLandsLayer.bindPopup((err, fc) => {
+          const hit = !err && fc && fc.features.find(f => {
+            const p = f.properties;
+            return (p.ownerclassification || p['Owner Classification']) === 'USDA FOREST SERVICE';
+          });
+          if (!hit) return false;
+          const p = hit.properties;
+          return `<b>US Forest Service</b><br>${p.forestname || p.FORESTNAME || ''}`;
+        });
       }
       usfsLandsLayer.addTo(map);
     } else {
@@ -3248,7 +3258,7 @@
 
   // One checkbox drives every public-lands source above.
   let publicLandsOn = false;
-  document.getElementById('chk-public-lands').addEventListener('change', e => {
+  document.getElementById('chk-statewide-lands').addEventListener('change', e => {
     publicLandsOn = e.target.checked;
     setUsfsLands(publicLandsOn);
     setFedOther(publicLandsOn);
