@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.78</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.79</div>
   </div>
 
   <div class="section">
@@ -844,7 +844,7 @@
         <span class="pl-legend">
           <span class="pl-dot" style="background:#7b5e9e" title="School Forests"></span>
           <span class="pl-dot" style="background:#2d6a4f" title="USFS"></span>
-          <span class="pl-dot" style="background:#52796f" title="MI DNR"></span>
+          <span class="pl-dot" style="background:#8fae3a" title="MI DNR"></span>
           <span class="pl-dot" style="background:#8b6f3e" title="County / City"></span>
           <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
           <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
@@ -941,6 +941,40 @@
 
   <div class="section">
     <div class="section-label">Statewide</div>
+    <div class="section-label species-toggle" id="publands-toggle" style="margin-top:4px">
+      Public Lands <span class="species-arrow closed">▾</span>
+    </div>
+    <div id="publands-body" style="display:none">
+      <label class="check-item">
+        <input type="checkbox" id="chk-usfs-lands">
+        <span class="inat-dot" style="background:#2d6a4f"></span>
+        USFS Lands
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-nf-inholdings">
+        <span class="inat-dot" style="background:#c8a878;border:1px dashed #888;box-sizing:border-box"></span>
+        NF Inholdings (non-FS)
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-fed-other">
+        Federal Lands (NPS/FWS/DoD)
+        <span class="pl-legend">
+          <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
+          <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
+          <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
+        </span>
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-tribal">
+        <span class="inat-dot" style="background:#7a3f8a"></span>
+        Native Tribal Lands
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-dnr-lands">
+        <span class="inat-dot" style="background:#8fae3a"></span>
+        MI DNR Lands
+      </label>
+    </div>
     <label class="check-item">
       <input type="checkbox" id="chk-veg"> Pre-settlement Vegetation
     </label>
@@ -958,35 +992,6 @@
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-fbfm"> Fire Fuel Model
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-usfs-lands">
-      <span class="inat-dot" style="background:#2d6a4f"></span>
-      USFS Lands
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-nf-inholdings">
-      <span class="inat-dot" style="background:#c8a878;border:1px dashed #888;box-sizing:border-box"></span>
-      NF Inholdings (non-FS)
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-fed-other">
-      Federal Lands (NPS/FWS/DoD)
-      <span class="pl-legend">
-        <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
-        <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
-        <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
-      </span>
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-tribal">
-      <span class="inat-dot" style="background:#7a3f8a"></span>
-      Native Tribal Lands
-    </label>
-    <label class="check-item">
-      <input type="checkbox" id="chk-dnr-lands">
-      <span class="inat-dot" style="background:#52796f"></span>
-      MI DNR Lands
     </label>
     <label class="check-item">
       <input type="checkbox" id="chk-fsveg"> USFS Forest Stands
@@ -2278,6 +2283,14 @@
     e.target.checked ? drainDistrictsLayer.addTo(map) : map.removeLayer(drainDistrictsLayer);
   });
 
+  document.getElementById('publands-toggle').addEventListener('click', () => {
+    const body = document.getElementById('publands-body');
+    const arrow = document.querySelector('#publands-toggle .species-arrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    arrow.classList.toggle('closed', open);
+  });
+
   document.getElementById('ag-toggle').addEventListener('click', () => {
     const body = document.getElementById('ag-body');
     const arrow = document.querySelector('#ag-toggle .species-arrow');
@@ -3072,7 +3085,7 @@
     if (dnrLandsLayer) { map.removeLayer(dnrLandsLayer); dnrLandsLayer = null; }
     dnrLandsLayer = L.geoJSON(geojson, {
       style() {
-        return { color: '#3a5a52', weight: 1.2, fillColor: '#52796f', fillOpacity: 0.4 };
+        return { color: '#627a20', weight: 1.2, fillColor: '#8fae3a', fillOpacity: 0.4 };
       },
       onEachFeature(feat, layer) {
         const p  = feat.properties;
@@ -3560,7 +3573,7 @@
     },
     dnr: {
       label: 'MI DNR', navLabel: 'MI DNR',
-      fill: '#52796f', border: '#3a5a52',
+      fill: '#8fae3a', border: '#627a20',
       url: 'https://services3.arcgis.com/Jdnp1TjADvSDxMAX/arcgis/rest/services/DNRLOTSParcelsOPENDATA/FeatureServer/0',
       where: "County = 'NEWAYGO'",
       nameField: 'DivisionDepartment', acreField: 'Acreage',
