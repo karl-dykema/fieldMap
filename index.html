@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.79</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.80</div>
   </div>
 
   <div class="section">
@@ -941,40 +941,19 @@
 
   <div class="section">
     <div class="section-label">Statewide</div>
-    <div class="section-label species-toggle" id="publands-toggle" style="margin-top:4px">
-      Public Lands <span class="species-arrow closed">▾</span>
-    </div>
-    <div id="publands-body" style="display:none">
-      <label class="check-item">
-        <input type="checkbox" id="chk-usfs-lands">
-        <span class="inat-dot" style="background:#2d6a4f"></span>
-        USFS Lands
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-nf-inholdings">
-        <span class="inat-dot" style="background:#c8a878;border:1px dashed #888;box-sizing:border-box"></span>
-        NF Inholdings (non-FS)
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-fed-other">
-        Federal Lands (NPS/FWS/DoD)
-        <span class="pl-legend">
-          <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
-          <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
-          <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
-        </span>
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-tribal">
-        <span class="inat-dot" style="background:#7a3f8a"></span>
-        Native Tribal Lands
-      </label>
-      <label class="check-item">
-        <input type="checkbox" id="chk-dnr-lands">
-        <span class="inat-dot" style="background:#8fae3a"></span>
-        MI DNR Lands
-      </label>
-    </div>
+    <label class="check-item">
+      <input type="checkbox" id="chk-public-lands">
+      Public Lands
+      <span class="pl-legend">
+        <span class="pl-dot" style="background:#2d6a4f" title="US Forest Service"></span>
+        <span class="pl-dot" style="background:#8b2f2f" title="National Park Service"></span>
+        <span class="pl-dot" style="background:#3d7aaa" title="Fish &amp; Wildlife Service"></span>
+        <span class="pl-dot" style="background:#6a6a3a" title="Dept of Defense"></span>
+        <span class="pl-dot" style="background:#7a3f8a" title="Native Tribal Lands"></span>
+        <span class="pl-dot" style="background:#8fae3a" title="MI DNR"></span>
+        <span class="pl-dot" style="background:#c86820" title="Consumers Energy"></span>
+      </span>
+    </label>
     <label class="check-item">
       <input type="checkbox" id="chk-veg"> Pre-settlement Vegetation
     </label>
@@ -2283,14 +2262,6 @@
     e.target.checked ? drainDistrictsLayer.addTo(map) : map.removeLayer(drainDistrictsLayer);
   });
 
-  document.getElementById('publands-toggle').addEventListener('click', () => {
-    const body = document.getElementById('publands-body');
-    const arrow = document.querySelector('#publands-toggle .species-arrow');
-    const open = body.style.display !== 'none';
-    body.style.display = open ? 'none' : '';
-    arrow.classList.toggle('closed', open);
-  });
-
   document.getElementById('ag-toggle').addEventListener('click', () => {
     const body = document.getElementById('ag-body');
     const arrow = document.querySelector('#ag-toggle .species-arrow');
@@ -3097,8 +3068,8 @@
     }).addTo(map);
   }
 
-  document.getElementById('chk-dnr-lands').addEventListener('change', e => {
-    dnrLandsEnabled = e.target.checked;
+  function setDnrLands(on) {
+    dnrLandsEnabled = on;
     if (dnrLandsEnabled) {
       // If layer already built just re-add it; otherwise fetch
       if (dnrLandsLayer) { dnrLandsLayer.addTo(map); }
@@ -3107,7 +3078,7 @@
       if (dnrLandsLayer) map.removeLayer(dnrLandsLayer);
       // keep dnrLandsLayer object and cache — re-add instantly on next enable
     }
-  });
+  }
 
   map.on('moveend', () => {
     if (!dnrLandsEnabled) return;
@@ -3131,24 +3102,31 @@
   const FED_LANDS_USFS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer';
   const FED_LANDS_OTHER_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_ForestSystemBoundaries_01/MapServer';
 
-  let usfsLandsLayer      = null;
-  let nfInholdingsLayer   = null;
+  let usfsLandsLayer = null;
 
-  document.getElementById('chk-usfs-lands').addEventListener('change', e => {
-    if (e.target.checked) {
+  // Drawn in the same green as Newaygo's USFS parcels instead of the
+  // service's own pale fill, so the two read as one thing.
+  function setUsfsLands(on) {
+    if (on) {
       if (!usfsLandsLayer) {
         usfsLandsLayer = L.esri.dynamicMapLayer({
           url: FED_LANDS_USFS_URL,
-          opacity: 0.5,
-          layers: [0],
-          layerDefs: { 0: "ownerclassification='USDA FOREST SERVICE'" },
+          dynamicLayers: [{
+            id: 0,
+            source: { type: 'mapLayer', mapLayerId: 0 },
+            definitionExpression: "ownerclassification='USDA FOREST SERVICE'",
+            drawingInfo: { renderer: { type: 'simple', symbol: {
+              type: 'esriSFS', style: 'esriSFSSolid', color: [45, 106, 79, 102],
+              outline: { type: 'esriSLS', style: 'esriSLSSolid', color: [26, 74, 51, 255], width: 0.8 },
+            } } },
+          }],
         });
       }
       usfsLandsLayer.addTo(map);
     } else {
       if (usfsLandsLayer) map.removeLayer(usfsLandsLayer);
     }
-  });
+  }
 
   // ── Native Tribal Lands (static file) ───────────────────────────────
   // 22 federal tribal reservation boundaries for MI + border-area tribes,
@@ -3170,7 +3148,7 @@
   }
 
   function renderTribalGeojson(geojson) {
-    if (!document.getElementById('chk-tribal').checked) return;
+    if (!publicLandsOn) return;
     if (tribalLayer) { map.removeLayer(tribalLayer); tribalLayer = null; }
     tribalLayer = L.geoJSON(geojson, {
       style(feat) {
@@ -3191,13 +3169,13 @@
     }).addTo(map);
   }
 
-  document.getElementById('chk-tribal').addEventListener('change', e => {
-    if (e.target.checked) {
+  function setTribal(on) {
+    if (on) {
       loadTribalLayer();
     } else {
       if (tribalLayer) { map.removeLayer(tribalLayer); tribalLayer = null; }
     }
-  });
+  }
 
   // ── NPS / FWS / DoD Federal Lands (static file) ──────────────────────
   const FED_OTHER_STYLE = {
@@ -3223,7 +3201,7 @@
   }
 
   function renderFedOtherGeojson(geojson) {
-    if (!document.getElementById('chk-fed-other').checked) return;
+    if (!publicLandsOn) return;
     if (fedOtherLayer) { fedOtherLayer.addTo(map); return; } // re-add existing
     fedOtherLayer = L.geoJSON(geojson, {
       style(feat) {
@@ -3238,28 +3216,45 @@
     }).addTo(map);
   }
 
-  document.getElementById('chk-fed-other').addEventListener('change', e => {
-    if (e.target.checked) {
+  function setFedOther(on) {
+    if (on) {
       loadFedOtherLayer();
     } else {
       if (fedOtherLayer) map.removeLayer(fedOtherLayer);
     }
-  });
+  }
 
-  document.getElementById('chk-nf-inholdings').addEventListener('change', e => {
-    if (e.target.checked) {
-      if (!nfInholdingsLayer) {
-        nfInholdingsLayer = L.esri.dynamicMapLayer({
-          url: FED_LANDS_USFS_URL,
-          opacity: 0.5,
-          layers: [0],
-          layerDefs: { 0: "ownerclassification='NON-FS'" },
-        });
-      }
-      nfInholdingsLayer.addTo(map);
-    } else {
-      if (nfInholdingsLayer) map.removeLayer(nfInholdingsLayer);
-    }
+  // ── Consumers Energy lands (static file) ─────────────────────────────
+  // Parcels owned by Consumers, pulled once from county parcel services.
+  // `county` on each feature says which county it came from.
+  let utilityLayer   = null;
+  let utilityGeojson = null;
+
+  async function setUtilityLands(on) {
+    if (!on) { if (utilityLayer) map.removeLayer(utilityLayer); return; }
+    if (utilityLayer) { utilityLayer.addTo(map); return; }
+    try {
+      if (!utilityGeojson) utilityGeojson = await (await fetch('utility_lands.geojson')).json();
+    } catch (err) { console.warn('Utility lands load error', err); return; }
+    if (!publicLandsOn || utilityLayer) return;
+    utilityLayer = L.geoJSON(utilityGeojson, {
+      style: () => ({ color: '#8a4010', weight: 1.2, fillColor: '#c86820', fillOpacity: 0.4 }),
+      onEachFeature(feat, layer) {
+        const p = feat.properties;
+        layer.bindTooltip(`<b>${p.owner}</b><br><span style="opacity:.75">${p.pin} · ${p.county} Co.</span>`);
+      },
+    }).addTo(map);
+  }
+
+  // One checkbox drives every public-lands source above.
+  let publicLandsOn = false;
+  document.getElementById('chk-public-lands').addEventListener('change', e => {
+    publicLandsOn = e.target.checked;
+    setUsfsLands(publicLandsOn);
+    setFedOther(publicLandsOn);
+    setTribal(publicLandsOn);
+    setDnrLands(publicLandsOn);
+    setUtilityLands(publicLandsOn);
   });
 
   // ── iNaturalist species layers (SWAP / barrens) ───────────────────
