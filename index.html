@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.81</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.82</div>
   </div>
 
   <div class="section">
@@ -3573,7 +3573,8 @@
       label: 'USFS', navLabel: 'USFS',
       fill: '#2d6a4f', border: '#1a4a33',
       url: PARCELS_URL,
-      where: "OWNER_NAME = 'U S GOVT'",
+      // County records Forest Service ownership under several spellings
+      where: "OWNER_NAME IN ('U S GOVT', 'US GOV''T', 'US FORREST SERVICE', 'USDA FOREST SERVICE', 'USDA-FOREST SERVICE', 'USA:  FOREST SERVICE, DEPT OF AG', 'FOREST SERVICE DEPT OF AGRICULTURE')",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     dnr: {
