@@ -767,7 +767,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.82</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.83</div>
   </div>
 
   <div class="section">
@@ -929,13 +929,56 @@
   </div>
 
   <div class="section">
-    <div class="section-label species-toggle" id="other-counties-toggle">
-      Other Counties <span class="species-arrow closed">▾</span>
+    <div class="section-label species-toggle" id="muskegon-toggle">
+      Muskegon County <span class="species-arrow closed">▾</span>
     </div>
-    <div id="other-counties-body" style="display:none">
-      <div style="padding:8px 12px;font-size:11px;color:#888;font-style:italic;line-height:1.5">
-        Coming soon — county-specific layers (parcels, roads, contours) for neighboring counties.
+    <div id="muskegon-body" style="display:none">
+      <label class="check-item">
+        <input type="checkbox" id="chk-musk-parcels"> Parcels
+      </label>
+      <div class="sel-mode-row">
+        <button class="sel-mode-btn" id="btn-select-mode-musk">Select parcels</button>
       </div>
+      <label class="check-item">
+        <input type="checkbox" id="chk-musk-roads"> Roads
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-musk-trails" title="DNR trail open data (state park and game area hiking, ORV, motorcycle, groomed snowmobile) plus OpenStreetMap bike paths and MTB trails: Lakeshore, Musketawa, Berry Junction, Hart-Montague, Pioneer and Fruitport singletrack. Saved copy, 2026-10-23.">
+        Trails
+        <span class="pl-legend">
+          <span class="pl-dot" style="background:#8b5a2b" title="Foot / horse trails"></span>
+          <span class="pl-dot" style="background:#2e8b57" title="Bike paths / MTB"></span>
+          <span class="pl-dot" style="background:#a03070" title="ORV / motorcycle"></span>
+          <span class="pl-dot" style="background:#4a9fd0" title="Snowmobile"></span>
+        </span>
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-musk-contours" title="County LiDAR contours. 10 ft lines from zoom 13, 2 ft from zoom 16, 1 ft from zoom 18."> Contours (10 / 2 / 1 ft)
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-musk-soils" title="NRCS SSURGO map units (Esri USA Soils Map Units), colored by drainage class. Click a polygon for the soil name, hydric rating and farmland class. Loads from zoom 14.">
+        Soils (drainage)
+        <span class="pl-legend">
+          <span class="pl-dot" style="background:#e0b860" title="Excessively drained"></span>
+          <span class="pl-dot" style="background:#a8c470" title="Well drained"></span>
+          <span class="pl-dot" style="background:#5aa0a8" title="Somewhat poorly drained"></span>
+          <span class="pl-dot" style="background:#2d4a90" title="Very poorly drained"></span>
+        </span>
+      </label>
+      <label class="check-item">
+        <input type="checkbox" id="chk-musk-public-lands" title="County parcels by owner (Manistee NF checked against USFS ownership, Conservation District, Michigan Nature Association, Land Conservancy of West MI, county, townships, schools, Consumers, land bank) plus DNR LOTS. Saved copy, 2026-10-23.">
+        Public Lands
+        <span class="pl-legend">
+          <span class="pl-dot" style="background:#2d6a4f" title="USFS"></span>
+          <span class="pl-dot" style="background:#8fae3a" title="MI DNR"></span>
+          <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Conservation District"></span>
+          <span class="pl-dot" style="background:#8b6f3e" title="County / City"></span>
+          <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
+          <span class="pl-dot" style="background:#7b5e9e" title="Schools"></span>
+          <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
+          <span class="pl-dot" style="background:#7aa8c8" title="Land Bank"></span>
+        </span>
+      </label>
     </div>
   </div>
 
@@ -1386,8 +1429,46 @@
 <script>
 
   const PARCELS_URL = 'https://arcgisweb.countyofnewaygo.com/hosting/rest/services/WebMaps/PublicCountyViewerProV3/MapServer/2';
+  const MUSK_GIS    = 'https://maps.muskegoncountygis.com/arcgis/rest/services';
+  // Muskegon's server answers 404 to any request carrying another site's Referer
+  // (even the county's own website), so everything sent there goes without one.
+  // Page-wide no-referrer would break OSM tiles, which expect a Referer.
+  const gisFetch = url => fetch(url, url.startsWith(MUSK_GIS) ? { referrerPolicy: 'no-referrer' } : {});
   const MIN_ZOOM    = 15;
   const SIM_THRESH  = 0.88;
+
+  // County parcel sources. Each is mapped onto Newaygo's field names so owner
+  // grouping, popups, multi-select and the analyzer work the same everywhere.
+  const joinParts = (...xs) => xs.map(x => (x || '').trim()).filter(Boolean).join(', ');
+  const PARCEL_SOURCES = [
+    { key: 'newaygo', chk: 'chk-parcels', url: PARCELS_URL, pageSize: 2000,
+      bounds: L.latLngBounds([43.29, -86.05], [43.82, -85.55]),
+      fields: ['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'],
+      normalize: p => p },
+    // Muskegon: open county server, 84,807 parcels. SEV maps to ASSESSED (Newaygo's ASSESSED is shown as SEV).
+    { key: 'muskegon', chk: 'chk-musk-parcels', url: `${MUSK_GIS}/Layers/Parcels_Base/MapServer/30`, pageSize: 1000,
+      bounds: L.latLngBounds([43.11, -86.47], [43.48, -85.78]),
+      fields: ['PIN', 'Owner_Name1', 'Owner_Name2', 'Owner_CareOf', 'Owner_Address', 'Owner_Address_City',
+               'Owner_Address_State', 'Owner_Address_ZipCode', 'Property_Address_Combined', 'Property_Address_City',
+               'State_Equalized_Value', 'Taxable_Value', 'Property_Class_Code', 'Property_Class_Description',
+               'Acreage_per_Assessor'],
+      normalize: p => ({
+        PIN: p.PIN, PACKEDPIN: p.PIN,
+        OWNER_NAME: p.Owner_Name1,
+        OWNER_NAME2: joinParts(p.Owner_Name2, p.Owner_CareOf),
+        P_ADDRESS: /^0? *$/.test(p.Property_Address_Combined || '') ? '' : joinParts(p.Property_Address_Combined, p.Property_Address_City),
+        OWNER_ADDR: joinParts(p.Owner_Address, p.Owner_Address_City, [p.Owner_Address_State, p.Owner_Address_ZipCode].filter(Boolean).join(' ')),
+        ASSESSED: p.State_Equalized_Value, TAXABLE: p.Taxable_Value,
+        CLASS: p.Property_Class_Code ? `${p.Property_Class_Code} ${(p.Property_Class_Description || '').trim()}` : '',
+        CALC_ACRE: p.Acreage_per_Assessor
+      }) },
+  ];
+  PARCEL_SOURCES.forEach(s => { s.enabled = false; });
+  // Most parcels one query may page through before asking for a closer zoom (dense city blocks)
+  const MAX_PARCELS_PER_SOURCE = 5000;
+
+  // PACKEDPIN for Newaygo, PIN for Muskegon (whose PINs are already unique)
+  const parcelId = f => f.properties.PACKEDPIN || f.properties.PIN;
 
   // ── URL hash: persist map position ───────────────────────────────
   function parseHash() {
@@ -1780,7 +1861,7 @@
   function selectGroup(group) {
     featureLayerMap.forEach((l, pin) => l.setStyle(defaultStyle(pin)));
     group.features.forEach(f => {
-      const l = featureLayerMap.get(f.properties.PIN);
+      const l = featureLayerMap.get(parcelId(f));
       if (l) l.setStyle(STYLE_SELECTED);
     });
   }
@@ -1795,13 +1876,19 @@
 
   const zoomHint = L.control({ position: 'bottomleft' });
   zoomHint.onAdd = () => { const d = L.DomUtil.create('div', 'zoom-hint'); d.textContent = 'Zoom in to load parcels'; return d; };
-  function showZoomHint(on) { try { on ? zoomHint.addTo(map) : map.removeControl(zoomHint); } catch(e) {} }
+  function showZoomHint(on, text = 'Zoom in to load parcels') {
+    try {
+      if (on) { zoomHint.addTo(map); zoomHint.getContainer().textContent = text; }
+      else map.removeControl(zoomHint);
+    } catch(e) {}
+  }
 
   function renderParcels() {
     // Only render features visible in/near the current viewport — prevents SVG bloat
     const viewBounds = map.getBounds().pad(0.15);
+    const enabledCounties = new Set(PARCEL_SOURCES.filter(s => s.enabled).map(s => s.key));
     const features = Array.from(featureCache.values()).filter(f => {
-      if (!f.geometry) return false;
+      if (!f.geometry || !enabledCounties.has(f.properties._county)) return false;
       try {
         const coords = f.geometry.type === 'Polygon'
           ? f.geometry.coordinates[0]
@@ -1819,15 +1906,15 @@
     parcelGroups   = groupByOwner(features);
     multiGroupPins = new Set(
       parcelGroups.filter(g => g.features.length > 1)
-        .flatMap(g => g.features.map(f => f.properties.PACKEDPIN || f.properties.PIN))
+        .flatMap(g => g.features.map(parcelId))
         .filter(Boolean)
     );
     featureLayerMap = new Map();
 
     const newBoundary = L.geoJSON({ type: 'FeatureCollection', features }, {
-      style: f => defaultStyle(f.properties.PIN),
+      style: f => defaultStyle(parcelId(f)),
       onEachFeature(feature, layer) {
-        const pid = feature.properties.PACKEDPIN || feature.properties.PIN;
+        const pid = parcelId(feature);
         if (pid) featureLayerMap.set(pid, layer);
         layer.on('click', e => {
           e.originalEvent.stopPropagation();
@@ -1836,8 +1923,9 @@
             return;
           }
           const group = parcelGroups.find(g => g.features.includes(feature)) || { features: [feature] };
-          selectGroup(group);
+          // Popup first: opening it closes any previous popup, whose popupclose clears styles
           showParcelPopup(feature, e.latlng);
+          selectGroup(group);
         });
       }
     });
@@ -1896,19 +1984,18 @@
     parcelFetchPending = true;
     if (featureCache.size > 3000) { featureCache.clear(); fetchedCells.clear(); lastFetchedBounds = null; updateUnloadedMask(); }
 
-    L.esri.query({ url: PARCELS_URL })
-      .within(queryBounds)
-      .fields(['OWNER_NAME', 'CALC_ACRE', 'PIN', 'PACKEDPIN', 'P_ADDRESS', 'OWNER_ADDR', 'TAXABLE', 'ASSESSED', 'CLASS'])
-      .run((error, fc) => {
+    const sources = PARCEL_SOURCES.filter(s => s.enabled && s.bounds.intersects(queryBounds));
+    Promise.all(sources.map(s => queryParcelSource(s, queryBounds)))
+      .then(results => {
         parcelFetchPending = false;
-        if (error || !fc) {
-          console.error('Parcel query error:', error);
-          scheduleParcelLoad(); // retry
-          return;
-        }
-        if (fc.exceededTransferLimit) {
-          console.warn('⚠ Record limit hit — retrying');
-          scheduleParcelLoad();
+        const truncated = results.some(r => r.truncated);
+        results.forEach(r => r.features.forEach(f => {
+          const id = parcelId(f);
+          if (id) featureCache.set(id, f);
+        }));
+        if (truncated) {
+          // Too dense to load at this zoom: show what came back, wait for the user to zoom in
+          showZoomHint(true, 'Zoom in to load all parcels here');
         } else {
           // Mark cells covered by this query as fetched (clears hatch)
           lastFetchedBounds = queryBounds;
@@ -1919,16 +2006,74 @@
             if (rect) { unloadedGroup.removeLayer(rect); unloadedCellLayers.delete(k); }
           });
         }
-        fc.features.forEach(f => {
-          const id = f.properties.PACKEDPIN || f.properties.PIN;
-          if (id) featureCache.set(id, f);
-        });
         renderParcels();
         // If the user panned while this request was in-flight, fetch the new area.
-        if (!lastFetchedBounds || !lastFetchedBounds.contains(map.getBounds().pad(0.3))) {
+        if (!truncated && !lastFetchedBounds.contains(map.getBounds().pad(0.3))) {
           scheduleParcelLoad();
         }
+      })
+      .catch(error => {
+        parcelFetchPending = false;
+        console.error('Parcel query error:', error);
+        scheduleParcelLoad(); // retry
       });
+  }
+
+  // Page through one county's parcels in the given bounds (servers cap each response
+  // at 1000-2000 records). Plain fetch rather than L.esri.query so Muskegon's requests
+  // can drop the Referer (see gisFetch). Resolves { features, truncated }.
+  async function queryParcelSource(src, bounds) {
+    const features = [];
+    for (let offset = 0; ; ) {
+      const params = new URLSearchParams({
+        where: '1=1',
+        geometry: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(','),
+        geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+        outFields: src.fields.join(','), outSR: '4326', orderByFields: 'OBJECTID',
+        resultOffset: offset, resultRecordCount: src.pageSize, f: 'geojson'
+      });
+      const resp = await gisFetch(`${src.url}/query?${params}`);
+      if (!resp.ok) throw new Error(`Parcels HTTP ${resp.status}`);
+      const fc = await resp.json();
+      if (fc.error) throw new Error(fc.error.message);
+      const page = fc.features || [];
+      page.forEach(f => {
+        f.properties = { ...src.normalize(f.properties), _county: src.key };
+        features.push(f);
+      });
+      // geojson output reports the limit at the top level or under properties, depending on server version
+      const more = page.length > 0 && (fc.exceededTransferLimit || fc.properties?.exceededTransferLimit || page.length >= src.pageSize);
+      if (!more) return { features, truncated: false };
+      if (features.length >= MAX_PARCELS_PER_SOURCE) return { features, truncated: true };
+      offset += page.length;
+    }
+  }
+
+  function setParcelSource(key, on) {
+    PARCEL_SOURCES.find(s => s.key === key).enabled = on;
+    const wasEnabled = parcelsEnabled;
+    parcelsEnabled = PARCEL_SOURCES.some(s => s.enabled);
+    if (parcelsEnabled) {
+      // A county was added or dropped: refetch this view (cache keeps what's already loaded)
+      lastFetchedBounds = null;
+      fetchedCells.clear();
+      if (!wasEnabled) unloadedGroup.addTo(map);
+      if (map.getZoom() < MIN_ZOOM) { showZoomHint(true); return; }
+      if (on) loadParcels(); else renderParcels();
+      updateUnloadedMask();
+      return;
+    }
+    if (parcelBoundary)   { map.removeLayer(parcelBoundary);   parcelBoundary = null; }
+    if (parcelGroupLayer) { map.removeLayer(parcelGroupLayer); parcelGroupLayer = null; }
+    unloadedGroup.clearLayers();
+    unloadedCellLayers.clear();
+    map.removeLayer(unloadedGroup);
+    parcelFetchPending = false;
+    lastFetchedBounds  = null;
+    showZoomHint(false);
+    clearMultiSelection();
+    setSelectMode(false);
+    // featureCache and fetchedCells kept intact so re-enabling is instant
   }
 
   // Pending geometry/label for the habitat analyze button
@@ -1970,6 +2115,7 @@
       html += `<div class="popup-title">${p.OWNER_NAME || '—'}</div>`;
     }
 
+    if (p.OWNER_NAME2) html += `<div class="popup-row">Also: <span>${p.OWNER_NAME2}</span></div>`;
     html += `<div class="popup-row">Acreage: <span>${featureAcres(feature).toFixed(2)} ac</span></div>`;
     if (p.P_ADDRESS) {
       const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.P_ADDRESS + ', Michigan')}`;
@@ -2182,6 +2328,103 @@
 
   document.getElementById('chk-contours').addEventListener('change', e => {
     e.target.checked ? contoursLayer.addTo(map) : map.removeLayer(contoursLayer);
+  });
+
+  // ── Muskegon County layers ───────────────────────────────────────
+  // Roads and contours draw live from the county server's export endpoint, one
+  // 512px image per tile. Not esri dynamicMapLayer: its images carry a Referer,
+  // which the server rejects (see gisFetch). Not the contour tile cache either:
+  // it has blank levels (z13, z15, z18).
+  const MuskExportLayer = L.TileLayer.extend({
+    getTileUrl(c) {
+      const span = 2 * 20037508.342789244 / Math.pow(2, c.z);
+      const xmin = -20037508.342789244 + c.x * span, ymax = 20037508.342789244 - c.y * span;
+      return `${this._url}/export?bbox=${xmin},${ymax - span},${xmin + span},${ymax}` +
+        '&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&format=png32&transparent=true&f=image';
+    }
+  });
+  const muskExport = (svc, opacity) => new MuskExportLayer(`${MUSK_GIS}/${svc}/MapServer`, {
+    tileSize: 512, zoomOffset: -1, maxZoom: 20, opacity,
+    referrerPolicy: 'no-referrer', attribution: 'Muskegon County GIS'
+  });
+  const muskRoadsLayer    = muskExport('Layers/Streets', 0.9);
+  const muskContoursLayer = muskExport('Layers/Contours', 0.75);
+  document.getElementById('chk-musk-roads').addEventListener('change', e => {
+    e.target.checked ? muskRoadsLayer.addTo(map) : map.removeLayer(muskRoadsLayer);
+  });
+  document.getElementById('chk-musk-contours').addEventListener('change', e => {
+    e.target.checked ? muskContoursLayer.addTo(map) : map.removeLayer(muskContoursLayer);
+  });
+
+  // Trails: saved copy (muskegon_trails.geojson, 2026-10-23) of DNR trail open data
+  // (hiking, equestrian, ORV, motorcycle, snowmobile) plus OSM bike paths and MTB
+  // trails. DNR rail trails were dropped in favour of OSM's finer, surface-tagged copies.
+  let muskTrailsLayer = null;
+  let muskTrailsFetched = false;
+  async function ensureMuskTrailsLayer() {
+    if (muskTrailsLayer) { if (!map.hasLayer(muskTrailsLayer)) muskTrailsLayer.addTo(map); return; }
+    if (muskTrailsFetched) return;
+    muskTrailsFetched = true;
+    try {
+      const gj = await fetch('muskegon_trails.geojson').then(r => r.json());
+      // Motorized underneath, bike paths on top
+      const order = { snow: 0, orv: 1, foot: 2, mtb: 3, bike: 4 };
+      gj.features.sort((a, b) => order[a.properties.kind] - order[b.properties.kind]);
+      muskTrailsLayer = L.geoJSON(gj, {
+        style: f => TRAIL_STYLES[f.properties.kind],
+        onEachFeature(f, layer) {
+          const p = f.properties;
+          layer.bindTooltip(p.name, { sticky: true, opacity: 0.9 });
+          layer.bindPopup(popupLines(p.name, [
+            p.type, [p.surface, p.on_road ? 'on road' : ''].filter(Boolean).join(' · '),
+            p.status && `Status: ${p.status}`, miles(p.miles), p.src,
+          ]));
+        }
+      });
+      if (document.getElementById('chk-musk-trails').checked) muskTrailsLayer.addTo(map);
+    } catch (err) {
+      console.warn('Muskegon trails load failed:', err);
+      muskTrailsFetched = false;
+    }
+  }
+  document.getElementById('chk-musk-trails').addEventListener('change', e => {
+    e.target.checked ? ensureMuskTrailsLayer() : (muskTrailsLayer && map.removeLayer(muskTrailsLayer));
+  });
+
+  // Soils: the county publishes none, so this is NRCS SSURGO via Esri's public
+  // USA Soils Map Units layer, limited to the Muskegon survey area (MI121).
+  const USA_SOILS_URL = 'https://services5.arcgis.com/7weheFjxuNkGGiZi/arcgis/rest/services/USA_Soils_Map_Units/FeatureServer/0';
+  const DRAINAGE_COLORS = {
+    'Excessively drained':          '#e0b860',
+    'Somewhat excessively drained': '#d4c47a',
+    'Well drained':                 '#a8c470',
+    'Moderately well drained':      '#78b48a',
+    'Somewhat poorly drained':      '#5aa0a8',
+    'Poorly drained':               '#3a70a8',
+    'Very poorly drained':          '#2d4a90',
+  };
+  const muskSoilsLayer = L.esri.featureLayer({
+    url: USA_SOILS_URL,
+    where: "AREASYMBOL = 'MI121'",
+    fields: ['OBJECTID', 'MUSYM', 'muname', 'drclassdcd', 'hydclprs', 'farmlndcl'],
+    minZoom: 14,
+    simplifyFactor: 0.35,
+    precision: 6,
+    style: f => {
+      const c = DRAINAGE_COLORS[f.properties.drclassdcd] || '#9aa4ac';
+      return { color: '#5a5040', weight: 0.6, opacity: 0.7, fillColor: c, fillOpacity: 0.45 };
+    },
+    onEachFeature(f, layer) {
+      const p = f.properties;
+      layer.bindTooltip(p.MUSYM || '', { sticky: true, opacity: 0.9 });
+      layer.bindPopup(popupLines(p.muname || 'Soil map unit', [
+        p.drclassdcd, p.hydclprs != null && `Hydric: ${p.hydclprs}%`, p.farmlndcl, p.MUSYM && `Symbol ${p.MUSYM}`,
+      ]));
+    },
+    attribution: 'USDA NRCS SSURGO via Esri'
+  });
+  document.getElementById('chk-musk-soils').addEventListener('change', e => {
+    e.target.checked ? muskSoilsLayer.addTo(map) : map.removeLayer(muskSoilsLayer);
   });
 
   // ── Electric utility layers ───────────────────────────────────────
@@ -2482,9 +2725,9 @@
     Object.values(gloLoaded).forEach(l => l.setOpacity(gloOpacity));
   });
 
-  document.getElementById('other-counties-toggle').addEventListener('click', () => {
-    const body = document.getElementById('other-counties-body');
-    const arrow = document.querySelector('#other-counties-toggle .species-arrow');
+  document.getElementById('muskegon-toggle').addEventListener('click', () => {
+    const body = document.getElementById('muskegon-body');
+    const arrow = document.querySelector('#muskegon-toggle .species-arrow');
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : '';
     arrow.classList.toggle('closed', open);
@@ -3663,14 +3906,17 @@
     });
   }
 
-  function buildPLLayer() {
-    const feats = [];
-    Object.keys(PL_CFG).forEach(cat => {
-      (plCache[cat] || []).forEach(f => {
-        feats.push({ type: 'Feature', geometry: f.geometry,
-          properties: { ...f.properties, _cat: cat } });
+  // Newaygo builds from plCache; Muskegon passes its saved file's features (already tagged _cat)
+  function buildPLLayer(feats = null) {
+    if (!feats) {
+      feats = [];
+      Object.keys(PL_CFG).forEach(cat => {
+        (plCache[cat] || []).forEach(f => {
+          feats.push({ type: 'Feature', geometry: f.geometry,
+            properties: { ...f.properties, _cat: cat } });
+        });
       });
-    });
+    }
     return L.geoJSON({ type: 'FeatureCollection', features: feats }, {
       style: f => {
         const c = PL_CFG[f.properties._cat] || {};
@@ -3779,6 +4025,36 @@
     if (!publicLandsEnabled) return;
     if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(hardcodedSites);
     else if (!map.hasLayer(hardcodedSites)) hardcodedSites.addTo(map);
+  });
+
+  // ── Muskegon public lands ─────────────────────────────────────
+  // Saved copy (muskegon_public_lands.geojson, 2026-10-23), same categories as Newaygo:
+  // county parcels matched by owner name, plus DNR LOTS. USFS = federal parcels inside
+  // Manistee NF ownership (USFS EDW), so HUD / VA / Army Corps parcels are left out.
+  let muskPLLayer = null;
+  let muskPLFetched = false;
+  async function ensureMuskPLLayer() {
+    if (!muskPLLayer && !muskPLFetched) {
+      muskPLFetched = true;
+      try {
+        const fc = await fetch('muskegon_public_lands.geojson').then(r => r.json());
+        muskPLLayer = buildPLLayer(fc.features);
+      } catch (err) {
+        console.warn('Muskegon public lands load failed:', err);
+        muskPLFetched = false;
+        return;
+      }
+    }
+    if (muskPLLayer && document.getElementById('chk-musk-public-lands').checked && map.getZoom() >= PL_MIN_ZOOM)
+      muskPLLayer.addTo(map);
+  }
+  document.getElementById('chk-musk-public-lands').addEventListener('change', e => {
+    e.target.checked ? ensureMuskPLLayer() : (muskPLLayer && map.removeLayer(muskPLLayer));
+  });
+  map.on('zoomend', () => {
+    if (!muskPLLayer || !document.getElementById('chk-musk-public-lands').checked) return;
+    if (map.getZoom() < PL_MIN_ZOOM) map.removeLayer(muskPLLayer);
+    else if (!map.hasLayer(muskPLLayer)) muskPLLayer.addTo(map);
   });
 
   // ── Browse ─────────────────────────────────────────────────────
@@ -3941,29 +4217,8 @@
     arrow.classList.toggle('closed', open);
   });
 
-  document.getElementById('chk-parcels').addEventListener('change', e => {
-    parcelsEnabled = e.target.checked;
-    if (parcelsEnabled) {
-      unloadedGroup.addTo(map);
-      if (map.getZoom() < MIN_ZOOM) showZoomHint(true);
-      else loadParcels();
-    } else {
-      if (parcelBoundary)   { map.removeLayer(parcelBoundary);   parcelBoundary = null; }
-      if (parcelGroupLayer) { map.removeLayer(parcelGroupLayer); parcelGroupLayer = null; }
-      unloadedGroup.clearLayers();
-      unloadedCellLayers.clear();
-      map.removeLayer(unloadedGroup);
-      parcelFetchPending = false;
-      lastFetchedBounds  = null;
-      showZoomHint(false);
-      clearMultiSelection();
-      selectMode = false;
-      const selBtn = document.getElementById('btn-select-mode');
-      selBtn.classList.remove('active');
-      selBtn.textContent = 'Select parcels';
-      // featureCache and fetchedCells kept intact so re-enabling is instant
-    }
-  });
+  PARCEL_SOURCES.forEach(s => document.getElementById(s.chk).addEventListener('change', e =>
+    setParcelSource(s.key, e.target.checked)));
 
   // ── GPS locate ───────────────────────────────────────────────────
   // ── GPS state ─────────────────────────────────────────────────────
@@ -4110,7 +4365,7 @@
 
   // ── Multi-parcel selection ────────────────────────────────────────
   function toggleParcelSelection(feature, layer) {
-    const pin = feature.properties.PACKEDPIN || feature.properties.PIN;
+    const pin = parcelId(feature);
     if (!pin) return;
     if (selectedParcels.has(pin)) {
       selectedParcels.delete(pin);
@@ -4152,17 +4407,21 @@
     const label = features.length === 1
       ? (features[0].properties.OWNER_NAME || '—')
       : `${features.length} selected parcels`;
-    const pins = features.map(f => f.properties.PACKEDPIN || f.properties.PIN).filter(Boolean);
+    const pins = features.map(f => f.properties.PIN).filter(Boolean);
     openHabitatPanel(geom, label, totalAcres, pins);
   }
 
-  document.getElementById('btn-select-mode').addEventListener('click', () => {
-    selectMode = !selectMode;
-    const btn = document.getElementById('btn-select-mode');
-    btn.classList.toggle('active', selectMode);
-    btn.textContent = selectMode ? 'Exit select' : 'Select parcels';
-    if (!selectMode) clearMultiSelection();
-  });
+  // One select mode shared by the Newaygo and Muskegon buttons
+  function setSelectMode(on) {
+    selectMode = on;
+    document.querySelectorAll('.sel-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', on);
+      btn.textContent = on ? 'Exit select' : 'Select parcels';
+    });
+    if (!on) clearMultiSelection();
+  }
+  document.querySelectorAll('.sel-mode-btn').forEach(btn =>
+    btn.addEventListener('click', () => setSelectMode(!selectMode)));
 
   document.getElementById('btn-sel-analyze').addEventListener('click', analyzeSelected);
   document.getElementById('btn-sel-clear').addEventListener('click', clearMultiSelection);
@@ -4345,10 +4604,16 @@
     return intersectToAcres(fc.features, geom, p => p.COVERTYPE);
   }
 
+  // Newaygo's county soils first; anywhere else (Muskegon) falls back to SSURGO
   async function querySoils(geom) {
-    const resp = await fetch(`${COUNTY_MS}/32/query?${arcgisBboxParams(geom, '*')}`);
+    let resp = await fetch(`${COUNTY_MS}/32/query?${arcgisBboxParams(geom, '*')}`);
     if (!resp.ok) throw new Error(`Soils HTTP ${resp.status}`);
-    const fc = await resp.json();
+    let fc = await resp.json();
+    if (!fc.features?.length) {
+      resp = await fetch(`${USA_SOILS_URL}/query?${arcgisBboxParams(geom, 'muname')}`);
+      if (!resp.ok) throw new Error(`Soils HTTP ${resp.status}`);
+      fc = await resp.json();
+    }
     if (!fc.features?.length) return new Map();
     const nameFields = ['MUNAME', 'muname', 'MapUnitName', 'MAPUNIT', 'SOIL_NAME', 'Name', 'NAME', 'MUSYM', 'musym'];
     return intersectToAcres(fc.features, geom,
@@ -4371,9 +4636,16 @@
     const parcelFeat = { type: 'Feature', geometry: geom, properties: {} };
     const buffer = turf.buffer(parcelFeat, 20, { units: 'meters' });
 
-    const resp = await fetch(`${COUNTY_MS}/5/query?${arcgisBboxParams(geom, 'SURFACE,NAME,PREFIX,TYPE')}`);
+    let resp = await fetch(`${COUNTY_MS}/5/query?${arcgisBboxParams(geom, 'SURFACE,NAME,PREFIX,TYPE')}`);
     if (!resp.ok) throw new Error(`Roads HTTP ${resp.status}`);
-    const fc = await resp.json();
+    let fc = await resp.json();
+    if (!fc.features?.length) {
+      // Muskegon centerlines carry a road class, not a surface
+      resp = await gisFetch(`${MUSK_GIS}/Layers/Streets/MapServer/3/query?${arcgisBboxParams(geom, 'Road_Class')}`);
+      if (!resp.ok) throw new Error(`Roads HTTP ${resp.status}`);
+      fc = await resp.json();
+      (fc.features || []).forEach(f => { f.properties.SURFACE = muskRoadClass(f.properties.Road_Class); });
+    }
     if (!fc.features?.length) return new Map();
 
     const byType = new Map();
@@ -4403,6 +4675,16 @@
       } catch(e) {}
     }
     return byType;
+  }
+
+  // Muskegon Road_Class codes, read off the street names in each class (2026-10-23)
+  function muskRoadClass(c) {
+    if (c === 'A2.1') return 'Interstate';
+    if (c === 'A2.2') return 'US highway';
+    if (c === 'A2.3') return 'State highway';
+    if (c === 'A3.1') return 'Primary road';
+    if (c === 'A3.7') return 'Alley / private';
+    return 'Local road';
   }
 
   function renderFrontageSection(data) {
@@ -4443,7 +4725,7 @@
     const parts = [];
 
     // Public lands — one swatch per category
-    if (document.getElementById('chk-public-lands').checked) {
+    if (document.getElementById('chk-public-lands').checked || document.getElementById('chk-musk-public-lands').checked) {
       parts.push('<span class="legend-section">Public Lands</span>');
       Object.values(PL_CFG).forEach(cfg => {
         parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${cfg.fill};border-color:${cfg.border}"></span>${cfg.label}</span>`);
@@ -4496,6 +4778,14 @@
       parts.push('<span class="legend-section">CDL</span>');
       CDL_LEGEND.forEach(([, label, color]) => {
         parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${label}</span>`);
+      });
+    }
+
+    // Muskegon soils — drainage class
+    if (document.getElementById('chk-musk-soils').checked) {
+      parts.push('<span class="legend-section">Soil drainage</span>');
+      Object.entries(DRAINAGE_COLORS).forEach(([label, color]) => {
+        parts.push(`<span class="legend-item"><span class="legend-swatch" style="background:${color}"></span>${label.replace(' drained', '')}</span>`);
       });
     }
 
@@ -5056,7 +5346,7 @@
 
   async function fetchLayerBytes(url) {
     try {
-      const r = await fetch(url);
+      const r = await gisFetch(url);
       if (!r.ok) return null;
       return await r.arrayBuffer();
     } catch { return null; }
@@ -5215,6 +5505,10 @@
       overlayFetches.push(fetchLayerBytes(`${COUNTY_MS}/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&layers=show:16,25&format=png32&transparent=true&f=image`));
     if (document.getElementById('chk-roads').checked)
       overlayFetches.push(fetchLayerBytes(`${COUNTY_MS}/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&layers=show:5&format=png32&transparent=true&f=image`));
+    if (document.getElementById('chk-musk-contours').checked)
+      overlayFetches.push(fetchLayerBytes(`${MUSK_GIS}/Layers/Contours/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&transparent=true&f=image`));
+    if (document.getElementById('chk-musk-roads').checked)
+      overlayFetches.push(fetchLayerBytes(`${MUSK_GIS}/Layers/Streets/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=102100&size=${sz}&format=png32&transparent=true&f=image`));
 
     try {
       btn.textContent = 'Fetching imagery…';
@@ -5309,9 +5603,27 @@
         });
       }
 
-      // Parcels (outlines only — yellow, thin)
-      if (document.getElementById('chk-parcels').checked && featureCache.size) {
+      if (document.getElementById('chk-musk-public-lands').checked && muskPLLayer && map.hasLayer(muskPLLayer)) {
+        muskPLLayer.eachLayer(l => {
+          const cfg = PL_CFG[l.feature?.properties?._cat] || {};
+          drawGeoFeature(page, l.feature, cfg.fill || '#777', 0.38,
+            cfg.border || '#555', 1, W, E, N, S, mW, mH, mX, mY);
+        });
+      }
+
+      // Muskegon soils (drainage class fill)
+      if (document.getElementById('chk-musk-soils').checked && map.hasLayer(muskSoilsLayer)) {
+        muskSoilsLayer.eachFeature(l => {
+          const c = DRAINAGE_COLORS[l.feature?.properties?.drclassdcd] || '#9aa4ac';
+          drawGeoFeature(page, l.feature, c, 0.45, '#5a5040', 0.4, W, E, N, S, mW, mH, mX, mY);
+        });
+      }
+
+      // Parcels (outlines only — yellow, thin), every county that's switched on
+      if (parcelsEnabled && featureCache.size) {
+        const counties = new Set(PARCEL_SOURCES.filter(s => s.enabled).map(s => s.key));
         for (const f of featureCache.values()) {
+          if (!counties.has(f.properties._county)) continue;
           drawGeoFeature(page, f, null, 0, '#ccaa00', 0.6, W, E, N, S, mW, mH, mX, mY);
         }
       }
