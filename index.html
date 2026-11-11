@@ -770,7 +770,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.86</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.87</div>
   </div>
 
   <div class="section">
@@ -4118,7 +4118,7 @@
   const browseFiles = {};
   function loadBrowseFile(fn) {
     if (!browseFiles[fn]) {
-      browseFiles[fn] = fetch(fn).then(r => r.json())
+      browseFiles[fn] = fetch(fn, { cache: 'no-cache' }).then(r => r.json())  // revalidate: tags get re-baked
         .then(fc => fc.features.filter(f => f.geometry))
         .catch(err => { delete browseFiles[fn]; throw err; });
     }
@@ -4143,19 +4143,32 @@
     return feats.filter(f => filter(f.properties)).map(f => ({ f, name: name(f.properties), detail: detail(f.properties) }));
   }
 
+  // Tribal and federal files reach into WI / IN / IL / MN / OH. _mi (baked from the Census
+  // state boundary, 2026-11-11) is true, false, or the indexes of the polygon parts in Michigan.
+  async function michiganItems(fn, filter, name, detail) {
+    const items = await staticItems(fn, p => p._mi && filter(p), name, detail);
+    items.forEach(it => {
+      const mi = it.f.properties._mi;
+      if (Array.isArray(mi) && it.f.geometry.type === 'MultiPolygon') {
+        it.f = { ...it.f, geometry: { type: 'MultiPolygon', coordinates: mi.map(i => it.f.geometry.coordinates[i]) } };
+      }
+    });
+    return items;
+  }
+
   const BROWSE_SOURCES = {
     ncd: () => countyCatItems('Newaygo', 'consdist'),
     mcd: () => countyCatItems('Muskegon', 'consdist'),
     usfs_special: () => staticItems('usfs-special-areas.geojson', () => true,
       p => p.areaname || p.casename || '—',
       p => [p.areatype, p.officialacres ? `${Math.round(p.officialacres)} ac official` : ''].filter(Boolean).join(' · ')),
-    nps: () => staticItems('federal_other_mi.geojson', p => p.Agency === 'National Park Service',
+    nps: () => michiganItems('federal_other_mi.geojson', p => p.Agency === 'National Park Service',
       p => p.unit_name || p.Agency, p => p.Agency),
-    fws: () => staticItems('federal_other_mi.geojson', p => p.Agency === 'Fish and Wildlife Service',
+    fws: () => michiganItems('federal_other_mi.geojson', p => p.Agency === 'Fish and Wildlife Service',
       p => p.unit_name || p.Agency, p => p.Agency),
-    dod: () => staticItems('federal_other_mi.geojson', p => p.Agency === 'Department of Defense',
+    dod: () => michiganItems('federal_other_mi.geojson', p => p.Agency === 'Department of Defense',
       p => p.unit_name || p.Agency, p => p.Agency),
-    tribal: () => staticItems('tribal_lands.geojson', () => true,
+    tribal: () => michiganItems('tribal_lands.geojson', () => true,
       p => p.NAME, p => p._type === 'trust' ? 'Off-reservation trust land' : 'Reservation'),
   };
 
