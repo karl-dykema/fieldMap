@@ -770,7 +770,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.85</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.86</div>
   </div>
 
   <div class="section">
@@ -1283,13 +1283,19 @@
         <button class="browse-cat-btn" data-cat="township">Townships</button>
         <button class="browse-cat-btn" data-cat="cemetery">Cemeteries</button>
         <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
-        <button class="browse-cat-btn" data-cat="consdist">Conservation District</button>
+        <button class="browse-cat-btn" data-cat="ncd">Newaygo Cons. District</button>
+        <button class="browse-cat-btn" data-cat="mcd">Muskegon Cons. District</button>
         <button class="browse-cat-btn" data-cat="state">State of MI</button>
         <button class="browse-cat-btn" data-cat="energy">Energy Utilities</button>
         <button class="browse-cat-btn" data-cat="church">Churches</button>
         <button class="browse-cat-btn" data-cat="landbank">Land Bank</button>
         <button class="browse-cat-btn" data-cat="road">Road / MDOT</button>
         <button class="browse-cat-btn" data-cat="known">Known Sites</button>
+        <button class="browse-cat-btn" data-cat="usfs_special">USFS Research Areas</button>
+        <button class="browse-cat-btn" data-cat="nps">National Park Service</button>
+        <button class="browse-cat-btn" data-cat="fws">Fish &amp; Wildlife</button>
+        <button class="browse-cat-btn" data-cat="dod">Dept of Defense</button>
+        <button class="browse-cat-btn" data-cat="tribal">Tribal Lands</button>
       </div>
       <div class="browse-nav">
         <button class="browse-arrow" id="browse-prev" disabled>&#8249;</button>
@@ -4073,7 +4079,7 @@
 
   // ── Browse ─────────────────────────────────────────────────────
   let browseCat = null;
-  let browseList = [];  // individual features, NN-sorted
+  let browseList = [];  // { f, name, detail } items, NN-sorted
   let browseIdx  = 0;
   let browseHL   = null;
 
@@ -4089,7 +4095,7 @@
     if (features.length <= 1) return features;
     const ctr = map.getCenter();
     let cur = [ctr.lat, ctr.lng];
-    const centroids = features.map(f => featureCentroid(f) || cur);
+    const centroids = features.map(f => featureCentroid(f.f || f) || cur);
     const rem = features.map((f, i) => ({ f, c: centroids[i] }));
     const sorted = [];
     while (rem.length) {
@@ -4105,19 +4111,79 @@
     return sorted;
   }
 
+  // ── Browse sources ──
+  // Every saved lands file, cross-referenced: a PL_CFG category pulls from both
+  // county files (plus Consumers parcels in Mecosta / Montcalm / Ionia for energy);
+  // the extra buttons pull from the statewide static files.
+  const browseFiles = {};
+  function loadBrowseFile(fn) {
+    if (!browseFiles[fn]) {
+      browseFiles[fn] = fetch(fn).then(r => r.json())
+        .then(fc => fc.features.filter(f => f.geometry))
+        .catch(err => { delete browseFiles[fn]; throw err; });
+    }
+    return browseFiles[fn];
+  }
+
+  const BROWSE_COUNTY_FILES = { Newaygo: 'newaygo_public_lands.geojson', Muskegon: 'muskegon_public_lands.geojson' };
+
+  async function countyCatItems(county, cat) {
+    const feats = await loadBrowseFile(BROWSE_COUNTY_FILES[county]);
+    return feats.filter(f => f.properties._cat === cat).map(f => {
+      const p = f.properties, cfg = PL_CFG[cat] || {};
+      const name = (cfg.nameOverrides && cfg.nameOverrides[p.PIN]) || p[cfg.nameField] || p.OWNER_NAME || '—';
+      // Muskegon's school category is every school-owned parcel, not just forests
+      const label = (cat === 'school' && county === 'Muskegon') ? 'School land' : (cfg.label || cat);
+      return { f, name, detail: `${county} Co. · ${label}` };
+    });
+  }
+
+  async function staticItems(fn, filter, name, detail) {
+    const feats = await loadBrowseFile(fn);
+    return feats.filter(f => filter(f.properties)).map(f => ({ f, name: name(f.properties), detail: detail(f.properties) }));
+  }
+
+  const BROWSE_SOURCES = {
+    ncd: () => countyCatItems('Newaygo', 'consdist'),
+    mcd: () => countyCatItems('Muskegon', 'consdist'),
+    usfs_special: () => staticItems('usfs-special-areas.geojson', () => true,
+      p => p.areaname || p.casename || '—',
+      p => [p.areatype, p.officialacres ? `${Math.round(p.officialacres)} ac official` : ''].filter(Boolean).join(' · ')),
+    nps: () => staticItems('federal_other_mi.geojson', p => p.Agency === 'National Park Service',
+      p => p.unit_name || p.Agency, p => p.Agency),
+    fws: () => staticItems('federal_other_mi.geojson', p => p.Agency === 'Fish and Wildlife Service',
+      p => p.unit_name || p.Agency, p => p.Agency),
+    dod: () => staticItems('federal_other_mi.geojson', p => p.Agency === 'Department of Defense',
+      p => p.unit_name || p.Agency, p => p.Agency),
+    tribal: () => staticItems('tribal_lands.geojson', () => true,
+      p => p.NAME, p => p._type === 'trust' ? 'Off-reservation trust land' : 'Reservation'),
+  };
+
+  async function browseItems(cat) {
+    if (BROWSE_SOURCES[cat]) return BROWSE_SOURCES[cat]();
+    const parts = await Promise.allSettled(Object.keys(BROWSE_COUNTY_FILES).map(c => countyCatItems(c, cat)));
+    const items = parts.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+    if (cat === 'energy') {
+      // Consumers parcels outside the two county files (Newaygo's are already in its file)
+      try {
+        items.push(...await staticItems('utility_lands.geojson', p => p.county !== 'Newaygo' && p.county !== 'Muskegon',
+          p => p.owner, p => `${p.county} Co. · Energy Utility`));
+      } catch (err) { console.warn('Browse: utility lands load failed', err); }
+    }
+    return items;
+  }
+
   function browseGo(idx) {
     browseIdx = idx;
-    const f = browseList[idx];
-    if (!f) return;
-    const cfg = PL_CFG[browseCat] || {};
-    const p = f.properties;
-    const name = (cfg.nameOverrides && cfg.nameOverrides[p.PIN]) || p[cfg.nameField] || '—';
+    const item = browseList[idx];
+    if (!item) return;
+    const f = item.f;
     const acres = featureAcres(f);
 
     document.getElementById('browse-counter').textContent = `${idx + 1} / ${browseList.length}`;
     document.getElementById('browse-info').innerHTML =
-      `<div class="browse-info-name">${name}</div>` +
-      (acres ? `<div class="browse-info-detail">${acres.toFixed(1)} ac</div>` : '');
+      `<div class="browse-info-name">${item.name}</div>` +
+      `<div class="browse-info-detail">${[item.detail, acres ? `${acres.toFixed(1)} ac` : ''].filter(Boolean).join(' · ')}</div>`;
     document.getElementById('browse-prev').disabled = idx <= 0;
     document.getElementById('browse-next').disabled = idx >= browseList.length - 1;
 
@@ -4131,7 +4197,7 @@
     }).addTo(map);
   }
 
-  function loadBrowseCat(cat) {
+  async function loadBrowseCat(cat) {
     browseCat = cat;
     browseList = [];
     browseIdx = 0;
@@ -4141,15 +4207,17 @@
     document.getElementById('browse-next').disabled = true;
     if (browseHL) { map.removeLayer(browseHL); browseHL = null; }
 
-    fetchPLCat(cat, features => {
-      if (!features.length) {
-        document.getElementById('browse-counter').textContent = '0 / 0';
-        document.getElementById('browse-info').innerHTML = '<span class="browse-status">No features found</span>';
-        return;
-      }
-      browseList = nnSortFeatures(features);
-      browseGo(0);
-    });
+    let items = [];
+    try { items = await browseItems(cat); }
+    catch (err) { console.warn(`Browse [${cat}] load failed`, err); }
+    if (browseCat !== cat) return;  // another button was clicked meanwhile
+    if (!items.length) {
+      document.getElementById('browse-counter').textContent = '0 / 0';
+      document.getElementById('browse-info').innerHTML = '<span class="browse-status">No features found</span>';
+      return;
+    }
+    browseList = nnSortFeatures(items);
+    browseGo(0);
   }
 
   document.querySelectorAll('.browse-cat-btn').forEach(btn => {
