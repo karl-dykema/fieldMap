@@ -232,7 +232,7 @@
     }
 
     .leaflet-bottom {
-      bottom: 34px !important;  /* clear the legend bar */
+      bottom: var(--legend-h, 0px) !important;  /* sit above the legend bar, however many rows it wraps to */
     }
     .leaflet-control-attribution {
       background: rgba(18, 20, 28, 0.75) !important;
@@ -505,15 +505,15 @@
       z-index: 900;
       background: rgba(12, 15, 26, 0.9);
       border-top: 1px solid #2a2e44;
-      padding: 5px 12px;
+      padding: 8px 16px;
       display: none;
       flex-wrap: wrap;
-      gap: 4px 14px;
+      gap: 6px 18px;
       align-items: center;
       pointer-events: none;
     }
     .legend-section {
-      font-size: 11px;
+      font-size: 12.5px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.12em;
@@ -523,13 +523,13 @@
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: 13px;
-      color: #8a93b4;
+      gap: 6px;
+      font-size: 15px;
+      color: #a0a8c8;
       white-space: nowrap;
     }
     .legend-swatch {
-      width: 13px; height: 13px;
+      width: 16px; height: 16px;
       border-radius: 2px;
       flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.12);
@@ -722,7 +722,10 @@
 
       #map { width: 100vw; }
 
-      #map-legend { left: 0; }
+      #map-legend { left: 0; padding: 5px 12px; gap: 4px 14px; }
+      .legend-section { font-size: 11px; }
+      .legend-item { font-size: 13px; gap: 5px; }
+      .legend-swatch { width: 13px; height: 13px; }
 
       #habitat-panel { width: 100vw; }
 
@@ -767,7 +770,7 @@
 <div id="sidebar">
   <div class="sidebar-header">
     <h1>Newaygo<br>Field Map</h1>
-    <div class="subtitle">Newaygo County, Michigan · v2.84</div>
+    <div class="subtitle">Newaygo County, Michigan · v2.85</div>
   </div>
 
   <div class="section">
@@ -849,6 +852,7 @@
           <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
           <span class="pl-dot" style="background:#9c8aa0" title="Cemetery"></span>
           <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
+          <span class="pl-dot" style="background:#2ec4b6" title="Conservation District"></span>
           <span class="pl-dot" style="background:#4a6aaa" title="State of Michigan"></span>
           <span class="pl-dot" style="background:#c86820" title="Energy Utilities"></span>
           <span class="pl-dot" style="background:#e87878" title="Churches"></span>
@@ -966,12 +970,13 @@
         </span>
       </label>
       <label class="check-item">
-        <input type="checkbox" id="chk-musk-public-lands" title="County parcels by owner (Manistee NF checked against USFS ownership, Conservation District, Michigan Nature Association, Land Conservancy of West MI, county, townships, schools, Consumers, land bank) plus DNR LOTS. Saved copy, 2026-10-23.">
+        <input type="checkbox" id="chk-musk-public-lands" title="County parcels by owner (Manistee NF checked against USFS ownership, Conservation District owned or managed, Michigan Nature Association, Land Conservancy of West MI, county, townships, schools, Consumers, land bank) plus DNR LOTS. Saved copy, 2026-10-23; Conservation District retagged 2026-11-11.">
         Public Lands
         <span class="pl-legend">
           <span class="pl-dot" style="background:#2d6a4f" title="USFS"></span>
           <span class="pl-dot" style="background:#8fae3a" title="MI DNR"></span>
-          <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Conservation District"></span>
+          <span class="pl-dot" style="background:#5aaa6a" title="Conservancy / Preserve"></span>
+          <span class="pl-dot" style="background:#2ec4b6" title="Conservation District"></span>
           <span class="pl-dot" style="background:#8b6f3e" title="County / City"></span>
           <span class="pl-dot" style="background:#3a7a8a" title="Township"></span>
           <span class="pl-dot" style="background:#7b5e9e" title="Schools"></span>
@@ -1278,6 +1283,7 @@
         <button class="browse-cat-btn" data-cat="township">Townships</button>
         <button class="browse-cat-btn" data-cat="cemetery">Cemeteries</button>
         <button class="browse-cat-btn" data-cat="conservancy">Conservancy</button>
+        <button class="browse-cat-btn" data-cat="consdist">Conservation District</button>
         <button class="browse-cat-btn" data-cat="state">State of MI</button>
         <button class="browse-cat-btn" data-cat="energy">Energy Utilities</button>
         <button class="browse-cat-btn" data-cat="church">Churches</button>
@@ -3832,7 +3838,15 @@
       label: 'Conservancy / Preserve', navLabel: 'Conservancy / Preserve',
       fill: '#5aaa6a', border: '#3a8a4a',
       url: PARCELS_URL,
-      where: "UPPER(OWNER_NAME) LIKE '%CONSERVANCY%' OR UPPER(OWNER_NAME) LIKE '%MICHIGAN NATURE%' OR UPPER(OWNER_NAME) LIKE '% LAND TRUST%' OR UPPER(OWNER_NAME) LIKE '%CONSERVATION DIST%' OR UPPER(OWNER_NAME) LIKE '%SANCTUARY%' OR UPPER(OWNER_NAME) LIKE '%PRESERVE%' OR UPPER(OWNER_NAME) LIKE '%CONSERVATION CLUB%'",
+      where: "UPPER(OWNER_NAME) LIKE '%CONSERVANCY%' OR UPPER(OWNER_NAME) LIKE '%MICHIGAN NATURE%' OR UPPER(OWNER_NAME) LIKE '% LAND TRUST%' OR UPPER(OWNER_NAME) LIKE '%SANCTUARY%' OR UPPER(OWNER_NAME) LIKE '%PRESERVE%' OR UPPER(OWNER_NAME) LIKE '%CONSERVATION CLUB%'",
+      nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
+    },
+    consdist: {
+      label: 'Conservation District', navLabel: 'Conservation District',
+      fill: '#2ec4b6', border: '#178a80',
+      url: PARCELS_URL,
+      // County spells it SOIL CONS DIST, SOIL CONSERVATION DIST(RICT), SOIL CONSERVATION
+      where: "UPPER(OWNER_NAME) LIKE '%SOIL CONS%' OR UPPER(OWNER_NAME) LIKE '%CONSERVATION DIST%'",
       nameField: 'OWNER_NAME', acreField: 'CALC_ACRE'
     },
     township: {
@@ -4807,6 +4821,11 @@
     cb.addEventListener('change', updateLegend)
   );
   map.on('moveend', updateLegend);
+
+  // Keep the attribution / bottom controls just above the legend, whatever its wrapped height
+  new ResizeObserver(([e]) => {
+    document.documentElement.style.setProperty('--legend-h', e.target.offsetHeight + 'px');
+  }).observe(document.getElementById('map-legend'));
 
   // ── Annotations (draw) ───────────────────────────────────────────
   const drawnItems = L.featureGroup().addTo(map);
